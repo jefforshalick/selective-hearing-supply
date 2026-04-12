@@ -1,0 +1,161 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import { products } from '../data/products';
+---
+
+<BaseLayout>
+  <Nav />
+
+  <!-- ─── Hero ──────────────────────────────────────────────────────────── -->
+  <section class="bg-[#FF7136] flex items-center justify-between px-20 py-14 gap-16 overflow-hidden">
+
+    <!-- Left: text -->
+    <div class="flex flex-col gap-5 shrink-0">
+      <!-- Drop label -->
+      <div class="flex items-center gap-3">
+        <span class="w-6 h-[2px] bg-[#0D0D0D] shrink-0"></span>
+        <span class="text-[11px] font-medium uppercase tracking-[0.2em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif]">
+          Drop 001 — April 2026
+        </span>
+      </div>
+
+      <!-- Headline -->
+      <div class="flex flex-col gap-0">
+        <span class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[72px] uppercase leading-[0.9] tracking-[-0.02em] text-[#0D0D0D]">Selective</span>
+        <span class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[72px] uppercase leading-[0.9] tracking-[-0.02em] text-[#0D0D0D]">Hearing</span>
+        <span class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[72px] uppercase leading-[0.9] tracking-[-0.02em] text-[#F5F5F0]">Supply</span>
+      </div>
+
+      <!-- Items for sale tag -->
+      <div class="flex items-center gap-3 mt-2">
+        <span class="w-6 h-[2px] bg-[#0D0D0D] shrink-0"></span>
+        <span class="text-[11px] font-medium uppercase tracking-[0.2em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif]">
+          Items for sale
+        </span>
+      </div>
+    </div>
+
+    <!-- Right: illustrated ears -->
+    <div class="flex items-center gap-0 shrink-0 -mr-4">
+      <img src="/images/ears/ear-drip-1.svg" alt="" aria-hidden="true" class="w-[160px] h-auto opacity-90" />
+      <img src="/images/ears/ear-drip-2.svg" alt="" aria-hidden="true" class="w-[160px] h-auto" />
+      <img src="/images/ears/ear-drip-3.svg" alt="" aria-hidden="true" class="w-[180px] h-auto" />
+    </div>
+
+  </section>
+
+  <!-- ─── Product grid ──────────────────────────────────────────────────── -->
+  <section class="bg-[#F5F5F0] flex-1 px-20 pt-14 pb-20">
+    <div class="grid grid-cols-3 gap-8 items-start">
+      {products.map((product) => (
+        <div class="flex flex-col">
+
+          {/* Product image / placeholder */}
+          {product.status === 'coming_soon' ? (
+            <div class="w-full h-[296px] mb-6 border border-dashed border-[#D0CEC9] flex items-center justify-center">
+              <span class="text-[11px] uppercase tracking-[0.2em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif] text-center leading-relaxed">
+                Coming<br/>Soon
+              </span>
+            </div>
+          ) : (
+            <div class="w-full h-[296px] mb-6 bg-[#0D0D0D] relative overflow-hidden flex items-center justify-center">
+              {product.image ? (
+                <img src={product.image} alt={product.name} class="w-full h-full object-cover" />
+              ) : (
+                <div class="flex flex-col items-center gap-2.5 opacity-40">
+                  <span class="w-8 h-[1px] bg-[#FF7136]"></span>
+                  <span class="text-[10px] uppercase tracking-[0.2em] text-[#F5F5F0] font-['Helvetica_Neue',system-ui,sans-serif]">Image</span>
+                </div>
+              )}
+              {/* IN STOCK badge */}
+              <span class="absolute top-5 left-5 bg-[#FF7136] text-[#0D0D0D] text-[10px] font-bold uppercase tracking-[0.12em] px-2.5 py-[5px] font-['Helvetica_Neue',system-ui,sans-serif]">
+                In Stock
+              </span>
+            </div>
+          )}
+
+          {/* Category + price row */}
+          <div class="flex items-start justify-between mb-1.5">
+            <span class="text-[10px] font-medium uppercase tracking-[0.18em] text-[#FF7136] font-['Helvetica_Neue',system-ui,sans-serif] leading-3">
+              {product.category}
+            </span>
+            {product.price !== null ? (
+              <span class="text-[22px] font-bold tracking-[-0.02em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif] leading-7">
+                ${product.price}
+              </span>
+            ) : (
+              <span class="text-[22px] font-bold tracking-[-0.02em] text-[#D0CEC9] font-['Helvetica_Neue',system-ui,sans-serif] leading-7">—</span>
+            )}
+          </div>
+
+          {/* Product name */}
+          <h2 class={`font-['Clash_Display',system-ui,sans-serif] font-bold text-[26px] uppercase leading-[1.05] tracking-[-0.01em] mb-3 ${product.status === 'coming_soon' ? 'text-[#D0CEC9]' : 'text-[#0D0D0D]'}`}>
+            {product.name}
+          </h2>
+
+          {/* Description */}
+          <p class="text-[13px] text-[#666] leading-[1.6] mb-6 font-['Helvetica_Neue',system-ui,sans-serif]">
+            {product.description}
+          </p>
+
+          {/* CTA row */}
+          <div class="flex items-center gap-4 mt-auto">
+            {product.status === 'in_stock' && (
+              <>
+                <button
+                  class={`inline-flex items-center px-7 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer transition-opacity hover:opacity-80 ${product.id === 'tray-no-1' ? 'bg-[#FF7136]' : 'bg-[#0D0D0D] !text-[#F5F5F0]'}`}
+                  style="border-radius: 0 14px 0 0;"
+                  data-product-id={product.id}
+                  data-product-price={product.price}
+                >
+                  Add to Cart — ${product.price}
+                </button>
+                {product.stock !== null && (
+                  <span class="text-[11px] uppercase tracking-[0.1em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif]">
+                    {product.stock} left
+                  </span>
+                )}
+              </>
+            )}
+            {product.status === 'coming_soon' && (
+              <button
+                class="inline-flex items-center px-7 py-3.5 text-[10px] font-bold uppercase tracking-[0.15em] text-[#0D0D0D] border border-[#D0CEC9] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer hover:border-[#0D0D0D] transition-colors"
+                style="border-radius: 0 14px 0 0;"
+              >
+                Notify Me
+              </button>
+            )}
+          </div>
+
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- ─── Footer ────────────────────────────────────────────────────────── -->
+  <footer class="border-t border-[#D0CEC9] px-20 py-5 flex justify-end">
+    <a href="https://selectivehear.ing"
+       class="text-[11px] uppercase tracking-[0.14em] text-[#999] hover:text-[#0D0D0D] transition-colors font-['Helvetica_Neue',system-ui,sans-serif]">
+      selectivehear.ing →
+    </a>
+  </footer>
+
+</BaseLayout>
+
+<script>
+  // Add to cart — basic localStorage cart
+  document.querySelectorAll('[data-product-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = (btn as HTMLElement).dataset.productId!;
+      const price = Number((btn as HTMLElement).dataset.productPrice);
+      const cart: Record<string, number> = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+      cart[id] = (cart[id] || 0) + 1;
+      localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
+      // Flash feedback
+      const original = btn.textContent;
+      btn.textContent = 'Added ✓';
+      setTimeout(() => { btn.textContent = original; }, 1200);
+    });
+  });
+</script>

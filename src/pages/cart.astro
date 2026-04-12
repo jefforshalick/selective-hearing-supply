@@ -1,0 +1,115 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+import { products } from '../data/products';
+---
+
+<BaseLayout title="Cart">
+  <Nav />
+
+  <main class="min-h-[calc(100vh-72px)] bg-[#F5F5F0] px-20 py-14">
+
+    <h1 class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[48px] uppercase leading-none tracking-[-0.02em] text-[#0D0D0D] mb-12">
+      Cart
+    </h1>
+
+    <!-- Empty state (shown by default, hidden via JS when cart has items) -->
+    <div id="cart-empty" class="flex flex-col items-start gap-6">
+      <p class="text-[13px] text-[#666] font-['Helvetica_Neue',system-ui,sans-serif]">Your cart is empty.</p>
+      <a href="/"
+         class="inline-flex items-center px-7 py-3.5 bg-[#0D0D0D] text-[#F5F5F0] text-[10px] font-bold uppercase tracking-[0.15em] font-['Helvetica_Neue',system-ui,sans-serif] hover:opacity-80 transition-opacity"
+         style="border-radius: 0 14px 0 0;">
+        Browse Supply
+      </a>
+    </div>
+
+    <!-- Cart items (hidden until JS populates) -->
+    <div id="cart-filled" class="hidden flex-col gap-0">
+
+      <!-- Line items -->
+      <div id="cart-items" class="flex flex-col border-t border-[#D0CEC9]"></div>
+
+      <!-- Totals -->
+      <div class="flex flex-col items-end gap-6 mt-10 pt-8 border-t border-[#D0CEC9]">
+        <div class="flex items-baseline gap-8">
+          <span class="text-[11px] uppercase tracking-[0.14em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif]">Total</span>
+          <span id="cart-total" class="text-[32px] font-bold tracking-[-0.02em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif]">$0</span>
+        </div>
+        <button
+          id="checkout-btn"
+          class="inline-flex items-center px-10 py-4 bg-[#FF7136] text-[#0D0D0D] text-[10px] font-bold uppercase tracking-[0.15em] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer hover:opacity-90 transition-opacity"
+          style="border-radius: 0 14px 0 0;">
+          Checkout
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-[#D0CEC9] px-20 py-5 flex justify-end">
+    <a href="https://selectivehear.ing"
+       class="text-[11px] uppercase tracking-[0.14em] text-[#999] hover:text-[#0D0D0D] transition-colors font-['Helvetica_Neue',system-ui,sans-serif]">
+      selectivehear.ing →
+    </a>
+  </footer>
+</BaseLayout>
+
+<script define:vars={{ products }}>
+  const cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+  const keys = Object.keys(cart);
+
+  if (keys.length > 0) {
+    document.getElementById('cart-empty').style.display = 'none';
+    const filled = document.getElementById('cart-filled');
+    filled.classList.remove('hidden');
+    filled.style.display = 'flex';
+
+    const itemsEl = document.getElementById('cart-items');
+    let total = 0;
+
+    keys.forEach((id) => {
+      const product = products.find((p) => p.id === id);
+      if (!product || product.price === null) return;
+      const qty = cart[id];
+      const subtotal = product.price * qty;
+      total += subtotal;
+
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between py-6 border-b border-[#D0CEC9]';
+      row.innerHTML = `
+        <div class="flex flex-col gap-1">
+          <span class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[20px] uppercase tracking-[-0.01em] text-[#0D0D0D]">${product.name}</span>
+          <span class="text-[11px] uppercase tracking-[0.14em] text-[#FF7136] font-['Helvetica_Neue',system-ui,sans-serif]">${product.category}</span>
+        </div>
+        <div class="flex items-center gap-8">
+          <div class="flex items-center gap-3">
+            <button onclick="updateQty('${id}', -1)" class="w-7 h-7 flex items-center justify-center border border-[#D0CEC9] text-[#0D0D0D] text-sm hover:border-[#0D0D0D] transition-colors">−</button>
+            <span class="w-6 text-center text-[14px] font-['Helvetica_Neue',system-ui,sans-serif]">${qty}</span>
+            <button onclick="updateQty('${id}', 1)" class="w-7 h-7 flex items-center justify-center border border-[#D0CEC9] text-[#0D0D0D] text-sm hover:border-[#0D0D0D] transition-colors">+</button>
+          </div>
+          <span class="text-[20px] font-bold tracking-[-0.02em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif] w-16 text-right">$${subtotal}</span>
+          <button onclick="removeItem('${id}')" class="text-[#999] hover:text-[#0D0D0D] transition-colors text-[18px] leading-none">×</button>
+        </div>
+      `;
+      itemsEl.appendChild(row);
+    });
+
+    document.getElementById('cart-total').textContent = '$' + total;
+  }
+
+  window.updateQty = (id, delta) => {
+    const cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+    cart[id] = Math.max(0, (cart[id] || 0) + delta);
+    if (cart[id] === 0) delete cart[id];
+    localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
+    location.reload();
+  };
+
+  window.removeItem = (id) => {
+    const cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+    delete cart[id];
+    localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
+    location.reload();
+  };
+</script>
