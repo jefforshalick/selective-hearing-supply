@@ -1,0 +1,54 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Nav from '../components/Nav.astro';
+---
+
+<BaseLayout title="Order Confirmed">
+  <Nav />
+
+  <main class="min-h-[calc(100vh-72px)] bg-[#F5F5F0] flex items-center justify-center px-6">
+    <div class="flex flex-col items-start gap-8 max-w-md w-full">
+
+      <!-- Mark -->
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 bg-[#FF7136] flex items-center justify-center shrink-0"
+             style="border-radius: 0 10px 0 0;">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+            <path d="M1.5 7L6.5 12L16.5 2" stroke="#0D0D0D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[36px] uppercase leading-none tracking-[-0.02em] text-[#0D0D0D]">
+          Order Confirmed
+        </h1>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <p class="text-[14px] leading-[1.6] text-[#444] font-['Helvetica_Neue',system-ui,sans-serif]">
+          Thanks for your order. You'll receive a confirmation email with your receipt and tracking info once your items ship.
+        </p>
+        <p class="text-[13px] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif]">
+          Questions? Reach out at <a href="mailto:hello@selectivehear.ing" class="text-[#0D0D0D] underline underline-offset-2">hello@selectivehear.ing</a>
+        </p>
+      </div>
+
+      <a href="/"
+         class="inline-flex items-center px-7 py-3.5 bg-[#0D0D0D] text-[#F5F5F0] text-[10px] font-bold uppercase tracking-[0.15em] font-['Helvetica_Neue',system-ui,sans-serif] hover:opacity-80 transition-opacity"
+         style="border-radius: 0 14px 0 0;">
+        Back to Supply
+      </a>
+
+    </div>
+  </main>
+
+  <footer class="border-t border-[#D0CEC9] px-6 py-5 lg:px-20 flex justify-end">
+    <a href="https://selectivehear.ing"
+       class="text-[11px] uppercase tracking-[0.14em] text-[#999] hover:text-[#0D0D0D] transition-colors font-['Helvetica_Neue',system-ui,sans-serif]">
+      selectivehear.ing →
+    </a>
+  </footer>
+</BaseLayout>
+
+<script>
+  // Clear cart after successful checkout
+  localStorage.removeItem('sh-supply-cart');
+</script>

@@ -37,9 +37,12 @@ import { products } from '../data/products';
         </div>
         <button
           id="checkout-btn"
-          class="inline-flex items-center px-10 py-4 bg-[#FF7136] text-[#0D0D0D] text-[10px] font-bold uppercase tracking-[0.15em] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer hover:opacity-90 transition-opacity"
+          class="inline-flex items-center gap-2 px-10 py-4 bg-[#FF7136] text-[#0D0D0D] text-[10px] font-bold uppercase tracking-[0.15em] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           style="border-radius: 0 14px 0 0;">
-          Checkout
+          <span id="checkout-label">Checkout</span>
+          <svg id="checkout-spinner" class="hidden animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="32" stroke-dashoffset="12"/>
+          </svg>
         </button>
       </div>
 
@@ -112,4 +115,34 @@ import { products } from '../data/products';
     localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
     location.reload();
   };
+
+  // Checkout
+  document.getElementById('checkout-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('checkout-btn') as HTMLButtonElement;
+    const label = document.getElementById('checkout-label')!;
+    const spinner = document.getElementById('checkout-spinner')!;
+
+    btn.disabled = true;
+    label.textContent = 'Redirecting…';
+    spinner.classList.remove('hidden');
+
+    try {
+      const cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Checkout failed');
+
+      window.location.href = data.url;
+    } catch (err: any) {
+      label.textContent = 'Checkout';
+      spinner.classList.add('hidden');
+      btn.disabled = false;
+      alert('Something went wrong: ' + err.message);
+    }
+  });
 </script>
