@@ -8,51 +8,67 @@ import { products } from '../data/products';
   <Nav />
 
   <!-- ─── Hero ──────────────────────────────────────────────────────────── -->
-  <section class="bg-[#FF7136] overflow-hidden
-                  flex flex-col px-6 py-10
-                  lg:flex-row lg:items-center lg:justify-between lg:px-20 lg:py-14 lg:gap-16">
+  <!--
+    Ears are always flex children. overflow:hidden clips them as viewport narrows.
+    gap between text and ears shrinks at smaller widths, pushing ears further right.
+    At ≥1024px all three fully visible; below that they clip progressively.
+  -->
+  <section class="bg-[#FF7136] overflow-hidden relative flex items-center"
+           id="hero-section">
 
     <!-- Text block -->
-    <div class="flex flex-col gap-4 lg:gap-5 shrink-0">
-
-      <!-- Top drop label — ghost (same orange as bg) -->
-      <div class="hidden lg:flex items-center gap-3">
-        <span class="w-6 h-[2px] bg-[#FF7136] shrink-0"></span>
-        <span class="text-[11px] font-medium uppercase tracking-[0.2em] text-[#FF7136] font-['Helvetica_Neue',system-ui,sans-serif]">
-          Drop 001 — April 2026
-        </span>
+    <div class="flex flex-col shrink-0" style="gap: 16px;">
+      <!-- Top drop label — ghost (same orange as bg, lg only) -->
+      <div class="hidden lg:flex items-center" style="gap: 12px;">
+        <span style="width:24px; height:2px; background:#FF7136; flex-shrink:0;"></span>
+        <span class="font-['Helvetica_Neue',system-ui,sans-serif] font-medium uppercase text-[#FF7136]" style="font-size:11px; letter-spacing:0.2em;">Drop 001 — April 2026</span>
       </div>
-
       <!-- Headline -->
       <div>
-        <div class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase leading-[0.9] tracking-[-0.02em] text-[#0D0D0D]
-                    text-[clamp(52px,13vw,72px)] lg:text-[72px]">Selective</div>
-        <div class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase leading-[0.9] tracking-[-0.02em] text-[#0D0D0D]
-                    text-[clamp(52px,13vw,72px)] lg:text-[72px]">Hearing</div>
-        <div class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase leading-[0.9] tracking-[-0.02em] text-[#F5F5F0]
-                    text-[clamp(52px,13vw,72px)] lg:text-[72px]">Supply</div>
+        <div class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase text-[#0D0D0D]"
+             style="font-size: clamp(52px, 13vw, 72px); line-height: 0.9; letter-spacing: -0.02em;">Selective</div>
+        <div class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase text-[#0D0D0D]"
+             style="font-size: clamp(52px, 13vw, 72px); line-height: 0.9; letter-spacing: -0.02em;">Hearing</div>
+        <div class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase text-[#F5F5F0]"
+             style="font-size: clamp(52px, 13vw, 72px); line-height: 0.9; letter-spacing: -0.02em;">Supply</div>
       </div>
-
       <!-- Items for sale -->
-      <div class="flex items-center gap-3 mt-1">
-        <span class="w-6 h-[2px] bg-[#F5F5F0] shrink-0"></span>
-        <span class="text-[11px] font-medium uppercase tracking-[0.2em] text-[#F5F5F0] font-['Helvetica_Neue',system-ui,sans-serif]">
-          Items for sale
-        </span>
+      <div class="flex items-center" style="gap: 12px;">
+        <span style="width:24px; height:2px; background:#F5F5F0; flex-shrink:0;"></span>
+        <span class="font-['Helvetica_Neue',system-ui,sans-serif] font-medium uppercase text-[#F5F5F0]" style="font-size:11px; letter-spacing:0.2em;">Items for sale</span>
       </div>
     </div>
 
-    <!-- Ears — hidden mobile, visible lg+ -->
-    <img src="/images/ears/ear-drip-1.svg" alt="" aria-hidden="true"
-         class="hidden lg:block shrink-0"
-         style="width:115.5px; height:251px; object-fit:contain;" />
-    <img src="/images/ears/ear-drip-2.svg" alt="" aria-hidden="true"
-         class="hidden lg:block shrink-0"
-         style="width:125.5px; height:261px; object-fit:contain;" />
-    <img src="/images/ears/ear-drip-3.svg" alt="" aria-hidden="true"
-         class="hidden lg:block shrink-0"
-         style="width:202px; height:261px; object-fit:contain;" />
+    <!-- Ears: always flex children, gap:64px between them, clipped by overflow:hidden -->
+    <div id="ears" aria-hidden="true">
+      <img src="/images/ears/ear-drip-1.svg" alt="" style="width:115.5px; height:251px; object-fit:contain; flex-shrink:0;" />
+      <img src="/images/ears/ear-drip-2.svg" alt="" style="width:125.5px; height:261px; object-fit:contain; flex-shrink:0;" />
+      <img src="/images/ears/ear-drip-3.svg" alt="" style="width:202px; height:261px; object-fit:contain; flex-shrink:0;" />
+    </div>
+
   </section>
+
+  <style>
+    #hero-section {
+      height: 375px;
+      padding: 40px 24px;
+      gap: 68px; /* tight gap at small widths — ears clip more */
+    }
+    #ears {
+      display: flex;
+      align-items: center;
+      gap: 64px;
+    }
+    @media (min-width: 600px) {
+      #hero-section { gap: 104px; } /* more breathing room, fewer ears visible */
+    }
+    @media (min-width: 1024px) {
+      #hero-section { padding: 40px 56px; gap: 104px; }
+    }
+    @media (min-width: 1189px) {
+      #ears { margin-left: auto; }
+    }
+  </style>
 
   <!-- ─── Product grid ──────────────────────────────────────────────────── -->
   <section class="bg-[#F5F5F0]">
