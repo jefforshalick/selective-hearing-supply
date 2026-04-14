@@ -207,6 +207,7 @@ const products = await getProducts();
   @media (min-width: 1024px) {
     .product-card {
       flex: 1 1 0%;
+      max-width: calc(33.333% - 2px); /* never wider than one column regardless of item count */
     }
   }
 
