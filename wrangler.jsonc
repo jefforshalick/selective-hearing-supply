@@ -11,5 +11,11 @@
 			"binding": "INVENTORY",
 			"id": "3e0c6a526e114892ba4d51240140df4b"
 		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "PRODUCT_IMAGES",
+			"bucket_name": "sh-supply-images"
+		}
 	]
 }

@@ -2,6 +2,8 @@
 export const prerender = false;
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { upsertProduct, slugify } from '../../../lib/products';
+import { syncProductToStripe } from '../../../lib/stripe';
+import { uploadImage } from '../../../lib/images';
 import type { Product } from '../../../data/products';
 
 let error = '';
@@ -12,18 +14,47 @@ if (Astro.request.method === 'POST') {
     const name = form.get('name')?.toString().trim() ?? '';
     const id = slugify(name);
 
+    // Handle image
+    let imageUrl: string | null = form.get('image_url')?.toString().trim() || null;
+    const imageFile = form.get('image_file') as File | null;
+
     const product: Product = {
       id,
       name,
       category: form.get('category')?.toString().trim() ?? '',
       price: form.get('price') ? Number(form.get('price')) : null,
       description: form.get('description')?.toString().trim() ?? '',
-      image: form.get('image')?.toString().trim() || null,
+      image: imageUrl,
       status: (form.get('status')?.toString() ?? 'coming_soon') as Product['status'],
       stock: form.get('stock') ? Number(form.get('stock')) : null,
+      dim_l: form.get('dim_l') ? Number(form.get('dim_l')) : null,
+      dim_w: form.get('dim_w') ? Number(form.get('dim_w')) : null,
+      dim_h: form.get('dim_h') ? Number(form.get('dim_h')) : null,
+      dim_unit: (form.get('dim_unit')?.toString() ?? 'in') as 'in' | 'cm',
+      weight: form.get('weight') ? Number(form.get('weight')) : null,
+      weight_unit: (form.get('weight_unit')?.toString() ?? 'oz') as 'oz' | 'lb',
     };
 
     await upsertProduct(product);
+
+    // Upload image after product exists in KV (we need the id as the key)
+    if (imageFile && imageFile.size > 0) {
+      try {
+        product.image = await uploadImage(imageFile, product.id);
+        await upsertProduct(product);
+      } catch {}
+    }
+
+    // Sync to Stripe — non-fatal
+    try {
+      const stripeIds = await syncProductToStripe(product);
+      product.stripe_product_id = stripeIds.stripe_product_id;
+      product.stripe_price_id = stripeIds.stripe_price_id;
+      await upsertProduct(product);
+    } catch {
+      // Stripe sync failed — product still saved, will sync on next edit
+    }
+
     return Astro.redirect('/admin');
   } catch (e: any) {
     error = e.message ?? 'Failed to save product.';
@@ -38,13 +69,31 @@ if (Astro.request.method === 'POST') {
     ← Back
   </a>
 
-  <form method="POST" style="max-width:600px; display:flex; flex-direction:column; gap:28px;">
+  <form method="POST" enctype="multipart/form-data" style="max-width:600px; display:flex; flex-direction:column; gap:28px;">
     {error && <p style="font-size:13px; color:#FF7136; padding:12px 16px; border:1px solid #FF7136; background:#1a0d0a;">{error}</p>}
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
       <div style="display:flex; flex-direction:column; gap:8px; grid-column:1/3;">
         <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Product Name *</label>
         <input type="text" name="name" required placeholder="Tray No. 2"
+               style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:100%;"
+               onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Status</label>
+        <select name="status"
+                style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:100%; cursor:pointer;"
+                onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'">
+          <option value="in_stock">In Stock</option>
+          <option value="sold_out">Sold Out</option>
+          <option value="coming_soon" selected>Coming Soon</option>
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Stock Qty</label>
+        <input type="number" name="stock" min="0" step="1" placeholder="0"
                style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:100%;"
                onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
       </div>
@@ -71,29 +120,50 @@ if (Astro.request.method === 'POST') {
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px; grid-column:1/3;">
-        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Image URL</label>
-        <input type="url" name="image" placeholder="https://..."
-               style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:100%;"
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Image</label>
+        <input type="file" name="image_file" accept="image/*"
+               style="font-size:12px; color:#888; background:#141414; border:1px solid #2A2A2A; padding:9px 12px; width:100%; cursor:pointer;" />
+        <input type="url" name="image_url" placeholder="Or paste an image URL"
+               style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 14px; outline:none; width:100%;"
                onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Status</label>
-        <select name="status"
-                style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:100%; cursor:pointer;"
-                onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'">
-          <option value="in_stock">In Stock</option>
-          <option value="sold_out">Sold Out</option>
-          <option value="coming_soon" selected>Coming Soon</option>
-        </select>
+      <div style="display:flex; flex-direction:column; gap:8px; grid-column:1/3;">
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Dimensions</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" name="dim_l" step="0.1" min="0" placeholder="L"
+                 style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:80px; flex-shrink:0;"
+                 onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          <span style="color:#444; font-size:13px;">×</span>
+          <input type="number" name="dim_w" step="0.1" min="0" placeholder="W"
+                 style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:80px; flex-shrink:0;"
+                 onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          <span style="color:#444; font-size:13px;">×</span>
+          <input type="number" name="dim_h" step="0.1" min="0" placeholder="H"
+                 style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:80px; flex-shrink:0;"
+                 onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          <select name="dim_unit" style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; cursor:pointer;"
+                  onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'">
+            <option value="in" selected>in</option>
+            <option value="cm">cm</option>
+          </select>
+        </div>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Stock Qty</label>
-        <input type="number" name="stock" min="0" step="1" placeholder="0"
-               style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; width:100%;"
-               onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+        <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:500;">Weight</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" name="weight" step="0.01" min="0" placeholder="0"
+                 style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; flex:1;"
+                 onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          <select name="weight_unit" style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:11px 14px; outline:none; cursor:pointer;"
+                  onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'">
+            <option value="oz" selected>oz</option>
+            <option value="lb">lb</option>
+          </select>
+        </div>
       </div>
+
     </div>
 
     <div style="display:flex; gap:12px; padding-top:4px;">

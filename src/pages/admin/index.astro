@@ -1,7 +1,29 @@
 ---
 export const prerender = false;
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { getProducts } from '../../lib/products';
+import { getProducts, upsertProduct } from '../../lib/products';
+import { syncProductToStripe } from '../../lib/stripe';
+
+let syncError = '';
+let syncCount = 0;
+
+if (Astro.request.method === 'POST') {
+  const allProducts = await getProducts();
+  for (const product of allProducts) {
+    if (!product.stripe_product_id) {
+      try {
+        const ids = await syncProductToStripe(product);
+        product.stripe_product_id = ids.stripe_product_id;
+        product.stripe_price_id = ids.stripe_price_id;
+        await upsertProduct(product);
+        syncCount++;
+      } catch (e: any) {
+        syncError = `Failed on "${product.name}": ${e.message}`;
+        break;
+      }
+    }
+  }
+}
 
 const products = await getProducts();
 
@@ -19,13 +41,30 @@ const statusColor: Record<string, string> = {
 
 <AdminLayout title="Products" activeNav="products">
 
-  <a slot="actions"
-     href="/admin/product/new"
-     style="display:inline-flex; align-items:center; gap:8px; background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 22px; text-decoration:none; border-radius:0 10px 0 0; transition:opacity 0.15s;"
-     onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    Add Product
-  </a>
+  <div slot="actions" style="display:flex; align-items:center; gap:10px;">
+    {products.some(p => !p.stripe_product_id) && (
+      <form method="POST">
+        <button type="submit"
+                style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 20px; color:#888; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
+                onmouseover="this.style.color='#F5F5F0';this.style.borderColor='#555'" onmouseout="this.style.color='#888';this.style.borderColor='#2A2A2A'">
+          Sync All to Stripe
+        </button>
+      </form>
+    )}
+    <a href="/admin/product/new"
+       style="display:inline-flex; align-items:center; gap:8px; background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 22px; text-decoration:none; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+       onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Product
+    </a>
+  </div>
+
+  {syncCount > 0 && (
+    <p style="font-size:12px; color:#4CAF50; margin-bottom:16px;">Synced {syncCount} product{syncCount !== 1 ? 's' : ''} to Stripe.</p>
+  )}
+  {syncError && (
+    <p style="font-size:12px; color:#FF7136; margin-bottom:16px;">{syncError}</p>
+  )}
 
   {products.length === 0 ? (
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 0; gap:16px;">
@@ -36,15 +75,15 @@ const statusColor: Record<string, string> = {
     <div style="border:1px solid #2A2A2A; overflow:hidden;">
 
       <!-- Table header -->
-      <div style="display:grid; grid-template-columns:1fr 120px 80px 100px 80px; gap:0; padding:10px 20px; background:#141414; border-bottom:1px solid #2A2A2A;">
-        {['Product', 'Price', 'Stock', 'Status', ''].map(h => (
-          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555; font-weight:500;">{h}</span>
+      <div style="display:grid; grid-template-columns:1fr 100px 80px 120px 80px 80px; gap:0; padding:10px 20px; background:#141414; border-bottom:1px solid #2A2A2A;">
+        {['Product', 'Price', 'Stock', 'Status', 'Stripe', ''].map((h, i) => (
+          <span style={`font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555; font-weight:500;${i === 4 ? ' text-align:center;' : ''}`}>{h}</span>
         ))}
       </div>
 
       <!-- Rows -->
       {products.map((product, i) => (
-        <div style={`display:grid; grid-template-columns:1fr 120px 80px 100px 80px; align-items:center; gap:0; padding:16px 20px; ${i < products.length - 1 ? 'border-bottom:1px solid #1E1E1E;' : ''} transition:background 0.12s;`}
+        <div style={`display:grid; grid-template-columns:1fr 100px 80px 120px 80px 80px; align-items:center; gap:0; padding:16px 20px; ${i < products.length - 1 ? 'border-bottom:1px solid #1E1E1E;' : ''} transition:background 0.12s;`}
              onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
 
           <!-- Name + category -->
@@ -67,6 +106,11 @@ const statusColor: Record<string, string> = {
           <span style={`display:inline-flex; align-items:center; gap:5px; font-size:10px; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; color:${statusColor[product.status]};`}>
             <span style={`width:5px; height:5px; border-radius:50%; background:${statusColor[product.status]}; flex-shrink:0;`}></span>
             {statusLabel[product.status]}
+          </span>
+
+          <!-- Stripe sync status -->
+          <span style="display:flex; justify-content:center;" title={product.stripe_product_id ? 'Synced to Stripe' : 'Not synced'}>
+            <span style={`width:8px; height:8px; border-radius:50%; background:${product.stripe_product_id ? '#4CAF50' : '#333'}; display:inline-block;`}></span>
           </span>
 
           <!-- Actions -->

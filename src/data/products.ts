@@ -9,6 +9,14 @@ export interface Product {
   image: string | null;
   status: ProductStatus;
   stock: number | null;
+  dim_l?: number | null;
+  dim_w?: number | null;
+  dim_h?: number | null;
+  dim_unit?: 'in' | 'cm';
+  weight?: number | null;
+  weight_unit?: 'oz' | 'lb';
+  stripe_product_id?: string;
+  stripe_price_id?: string | null;
 }
 
 export const products: Product[] = [

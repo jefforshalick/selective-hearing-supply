@@ -171,7 +171,7 @@ const products = await getProducts();
                     class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#B0ADA8] font-['Helvetica_Neue',system-ui,sans-serif] cursor-not-allowed"
                     style="padding: 14px 28px; border-radius: 0 14px 0 0; background: #D8D5CF;"
                   >
-                    Sold Out
+                    Add to Cart
                   </button>
                   <span class="text-[11px] uppercase tracking-[0.1em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif]">
                     0 Left
@@ -180,10 +180,11 @@ const products = await getProducts();
               )}
               {product.status === 'coming_soon' && (
                 <button
-                  class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer hover:border-[#0D0D0D] transition-colors"
-                  style="padding: 14px 28px; border-radius: 0 14px 0 0; border: 1.5px solid #D0CEC9;"
+                  disabled
+                  class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#B0ADA8] font-['Helvetica_Neue',system-ui,sans-serif] cursor-not-allowed"
+                  style="padding: 14px 28px; border-radius: 0 14px 0 0; background: #D8D5CF;"
                 >
-                  Notify Me
+                  Add to Cart
                 </button>
               )}
             </div>

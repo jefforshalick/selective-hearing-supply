@@ -1,0 +1,111 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getProducts } from '../../lib/products';
+import { createPaymentLink } from '../../lib/stripe';
+
+const products = await getProducts();
+const pricedProducts = products.filter((p) => p.stripe_price_id);
+
+let paymentLink = '';
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const form = await Astro.request.formData();
+    const items: { stripePriceId: string; quantity: number }[] = [];
+
+    for (const product of pricedProducts) {
+      const qty = parseInt(form.get(`qty_${product.id}`)?.toString() ?? '0', 10);
+      if (qty > 0 && product.stripe_price_id) {
+        items.push({ stripePriceId: product.stripe_price_id, quantity: qty });
+      }
+    }
+
+    if (items.length === 0) {
+      error = 'Add at least one item before generating a link.';
+    } else {
+      paymentLink = await createPaymentLink(items);
+    }
+  } catch (e: any) {
+    error = e.message ?? 'Failed to generate payment link.';
+  }
+}
+---
+
+<AdminLayout title="Payment Links" activeNav="links">
+  <div style="max-width:640px; display:flex; flex-direction:column; gap:32px;">
+
+    {pricedProducts.length === 0 ? (
+      <p style="font-size:13px; color:#555;">
+        No products with Stripe prices yet. Save a product with a price to enable link generation.
+      </p>
+    ) : (
+      <form method="POST" style="display:flex; flex-direction:column; gap:0;">
+
+        {/* Column headers */}
+        <div style="display:grid; grid-template-columns:1fr 120px 80px; gap:16px; padding:0 0 10px; border-bottom:1px solid #1E1E1E;">
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555;">Product</span>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555;">Price</span>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; text-align:right;">Qty</span>
+        </div>
+
+        {/* Product rows */}
+        {pricedProducts.map((product) => (
+          <div style="display:grid; grid-template-columns:1fr 120px 80px; gap:16px; align-items:center; padding:14px 0; border-bottom:1px solid #1A1A1A;">
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span style="font-size:14px; font-weight:500; color:#F5F5F0;">{product.name}</span>
+              {product.dim_l != null && product.dim_w != null && product.dim_h != null && (
+                <span style="font-size:11px; color:#555;">{product.dim_l} × {product.dim_w} × {product.dim_h} {product.dim_unit ?? 'in'}</span>
+              )}
+            </div>
+            <span style="font-size:14px; color:#888;">
+              {product.price !== null ? `$${product.price}` : '—'}
+            </span>
+            <input
+              type="number"
+              name={`qty_${product.id}`}
+              min="0"
+              value="0"
+              style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:8px 10px; outline:none; width:100%; text-align:right;"
+              onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'"
+            />
+          </div>
+        ))}
+
+        {/* Actions */}
+        <div style="padding-top:24px; display:flex; flex-direction:column; gap:16px;">
+          {error && <p style="font-size:12px; color:#FF7136;">{error}</p>}
+
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button type="submit"
+                    style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+                    onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+              Generate Link
+            </button>
+            <button type="reset"
+                    style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 20px; color:#888; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
+                    onmouseover="this.style.color='#F5F5F0';this.style.borderColor='#555'" onmouseout="this.style.color='#888';this.style.borderColor='#2A2A2A'">
+              Clear
+            </button>
+          </div>
+
+          {paymentLink && (
+            <div style="display:flex; align-items:center; gap:8px; padding:16px; background:#141414; border:1px solid #2A2A2A;">
+              <input type="text" readonly value={paymentLink}
+                     style="background:none; border:none; color:#4CAF50; font-size:12px; outline:none; flex:1; min-width:0;"
+                     onclick="this.select()" />
+              <button type="button"
+                      onclick={`navigator.clipboard.writeText('${paymentLink}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)`}
+                      style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; padding:9px 16px; color:#0D0D0D; background:#FF7136; border:none; cursor:pointer; flex-shrink:0;">
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
+
+      </form>
+    )}
+
+  </div>
+</AdminLayout>
