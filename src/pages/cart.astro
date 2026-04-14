@@ -30,7 +30,7 @@ import { products } from '../data/products';
     <div id="cart-filled" class="hidden flex-col gap-0">
 
       <!-- Line items -->
-      <div id="cart-items" class="flex flex-col border-t border-[#D0CEC9]"></div>
+      <div id="cart-items" class="flex flex-col divide-y divide-[#D0CEC9] border-t border-[#D0CEC9]"></div>
 
       <!-- Totals -->
       <div class="flex flex-col items-end gap-6 mt-10 pt-8 border-t border-[#D0CEC9]">
@@ -62,7 +62,30 @@ import { products } from '../data/products';
 
   <script>
     const products = JSON.parse(document.getElementById('product-data')!.textContent!);
-    const cart: Record<string, number> = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+    const validIds = new Set(products.map((p: any) => p.id));
+
+    // Prune any cart entries whose product no longer exists
+    const rawCart: Record<string, number> = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+    const cart: Record<string, number> = Object.fromEntries(
+      Object.entries(rawCart).filter(([id]) => validIds.has(id))
+    );
+    if (Object.keys(cart).length !== Object.keys(rawCart).length) {
+      localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
+      // Re-sync the nav badge after pruning
+      const newCount = Object.values(cart).reduce((s: number, q: number) => s + q, 0);
+      const badge = document.getElementById('cart-badge');
+      if (badge) {
+        if (newCount > 0) {
+          badge.textContent = newCount > 9 ? '9+' : String(newCount);
+          badge.classList.remove('hidden');
+          badge.classList.add('flex');
+        } else {
+          badge.classList.add('hidden');
+          badge.classList.remove('flex');
+        }
+      }
+    }
+
     const keys = Object.keys(cart);
 
     if (keys.length > 0) {
@@ -82,7 +105,7 @@ import { products } from '../data/products';
         total += subtotal;
 
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between py-6 border-b border-[#D0CEC9]';
+        row.className = 'flex items-center justify-between py-6';
         row.innerHTML = `
           <div class="flex flex-col gap-1">
             <span class="font-['Clash_Display',system-ui,sans-serif] font-bold text-[20px] uppercase tracking-[-0.01em] text-[#0D0D0D]">${product.name}</span>

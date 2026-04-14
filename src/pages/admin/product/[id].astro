@@ -17,7 +17,7 @@ if (Astro.request.method === 'POST') {
 
     if (intent === 'delete') {
       await deleteProduct(id!);
-      return Astro.redirect('/admin');
+      return Astro.redirect('/admin', 303);
     }
 
     const updated: Product = {
@@ -131,11 +131,11 @@ if (Astro.request.method === 'POST') {
       <span style="font-size:12px; color:#555; font-weight:500;">Danger zone</span>
       <span style="font-size:11px; color:#444;">Permanently remove this product from the store.</span>
     </div>
-    <form method="POST" onsubmit="return confirm('Delete this product? This cannot be undone.')">
+    <form method="POST" id="delete-form">
       <input type="hidden" name="_intent" value="delete" />
-      <button type="submit"
-              style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 20px; color:#555; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
-              onmouseover="this.style.color='#ff4444';this.style.borderColor='#ff4444'" onmouseout="this.style.color='#555';this.style.borderColor='#2A2A2A'">
+      <button type="button" id="delete-btn"
+              onclick="if(this.dataset.confirm==='1'){document.getElementById('delete-form').submit()}else{this.dataset.confirm='1';this.textContent='Confirm Delete';this.style.color='#ff4444';this.style.borderColor='#ff4444';setTimeout(()=>{this.dataset.confirm='';this.textContent='Delete Product';this.style.color='#555';this.style.borderColor='#2A2A2A'},3000)}"
+              style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 20px; color:#555; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;">
         Delete Product
       </button>
     </form>

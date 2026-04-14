@@ -29,11 +29,24 @@ const { cartCount = 0 } = Astro.props;
       <line x1="3" y1="6" x2="21" y2="6"/>
       <path d="M16 10a4 4 0 0 1-8 0"/>
     </svg>
-    {cartCount > 0 && (
-      <span class="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7136] text-[#F5F5F0] text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
-        {cartCount}
-      </span>
-    )}
+    <span id="cart-badge"
+          class="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7136] text-[#0D0D0D] text-[9px] font-bold rounded-full items-center justify-center leading-none hidden">
+    </span>
   </a>
+
+  <script is:inline>
+    (function() {
+      var cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+      var count = Object.values(cart).reduce(function(sum, qty) { return sum + qty; }, 0);
+      if (count > 0) {
+        var badge = document.getElementById('cart-badge');
+        if (badge) {
+          badge.textContent = count > 9 ? '9+' : count;
+          badge.classList.remove('hidden');
+          badge.classList.add('flex');
+        }
+      }
+    })();
+  </script>
 
 </nav>

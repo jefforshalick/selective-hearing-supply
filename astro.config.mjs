@@ -7,7 +7,12 @@ import cloudflare from '@astrojs/cloudflare';
 export default defineConfig({
   site: 'https://supply.selectivehear.ing',
   output: 'static',
-  adapter: cloudflare(),
+  adapter: cloudflare({
+    platformProxy: {
+      enabled: true,
+      configPath: 'wrangler.jsonc',
+    },
+  }),
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],

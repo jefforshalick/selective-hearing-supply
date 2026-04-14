@@ -75,6 +75,17 @@ const products = await getProducts();
 
   <!-- ─── Product grid ──────────────────────────────────────────────────── -->
   <section class="bg-[#F5F5F0]">
+    {products.length === 0 ? (
+      <div class="flex flex-col items-center justify-center px-6 py-24 lg:py-40 text-center">
+        <h2 class="font-['Clash_Display',system-ui,sans-serif] font-bold uppercase text-[#0D0D0D] mb-4"
+            style="font-size: clamp(36px, 8vw, 56px); line-height: 0.95; letter-spacing: -0.02em;">
+          Coming<br/>Soon
+        </h2>
+        <p class="text-[13px] text-[#999] leading-relaxed font-['Helvetica_Neue',system-ui,sans-serif] max-w-xs mt-4">
+          Products are on the way. Check back soon.
+        </p>
+      </div>
+    ) : (
     <!--
       flex-wrap below lg  → cards reflow 2-col then 1-col based on available space
       flex-nowrap at lg+  → fixed 3-col with explicit 1px vertical dividers
@@ -96,7 +107,7 @@ const products = await getProducts();
             {/* Image / placeholder */}
             {product.status === 'coming_soon' ? (
               <div class="product-img w-full mb-6 flex items-center justify-center"
-                   style="border: 2px dashed #D0CEC9;">
+                   style="border: 2px dashed #C4C2BC; background: #ECEAE6;">
                 <span class="text-[11px] uppercase tracking-[0.2em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif] text-center leading-relaxed">
                   Coming<br/>Soon
                 </span>
@@ -111,30 +122,26 @@ const products = await getProducts();
                     <span class="text-[10px] uppercase tracking-[0.2em] text-[#F5F5F0] font-['Helvetica_Neue',system-ui,sans-serif]">Image</span>
                   </div>
                 )}
-                <span class="absolute top-5 left-5 bg-[#FF7136] text-[#0D0D0D] text-[10px] font-bold uppercase tracking-[0.12em] font-['Helvetica_Neue',system-ui,sans-serif]"
-                      style="padding: 5px 10px;">
-                  In Stock
-                </span>
               </div>
             )}
 
             {/* Category + price */}
             <div class="flex items-start justify-between mb-1.5">
-              <span class={`text-[10px] font-medium uppercase tracking-[0.18em] font-['Helvetica_Neue',system-ui,sans-serif] leading-3 ${product.status === 'coming_soon' ? 'text-[#C0BDB7]' : 'text-[#FF7136]'}`}>
+              <span class={`text-[10px] font-medium uppercase tracking-[0.18em] font-['Helvetica_Neue',system-ui,sans-serif] leading-3 ${product.status !== 'coming_soon' ? 'text-[#FF7136]' : 'text-[#C0BDB7]'}`}>
                 {product.category}
               </span>
-              <span class={`text-[22px] font-bold tracking-[-0.02em] font-['Helvetica_Neue',system-ui,sans-serif] leading-7 ${product.status === 'coming_soon' ? 'text-[#C0BDB7]' : 'text-[#0D0D0D]'}`}>
+              <span class={`text-[22px] font-bold tracking-[-0.02em] font-['Helvetica_Neue',system-ui,sans-serif] leading-7 ${product.status !== 'coming_soon' ? 'text-[#0D0D0D]' : 'text-[#C0BDB7]'}`}>
                 {product.price !== null ? `$${product.price}` : '—'}
               </span>
             </div>
 
             {/* Product name */}
-            <h2 class={`font-['Clash_Display',system-ui,sans-serif] font-bold text-[26px] uppercase leading-[1.05] tracking-[-0.01em] mb-3 ${product.status === 'coming_soon' ? 'text-[#C0BDB7]' : 'text-[#0D0D0D]'}`}>
+            <h2 class={`font-['Clash_Display',system-ui,sans-serif] font-bold text-[26px] uppercase leading-[1.05] tracking-[-0.01em] mb-3 ${product.status !== 'coming_soon' ? 'text-[#0D0D0D]' : 'text-[#C0BDB7]'}`}>
               {product.name}
             </h2>
 
             {/* Description — flex-grow pins CTA to same baseline */}
-            <p class={`flex-grow text-[13px] leading-[1.6] mb-6 font-['Helvetica_Neue',system-ui,sans-serif] ${product.status === 'coming_soon' ? 'text-[#C0BDB7]' : 'text-[#666]'}`}>
+            <p class={`flex-grow text-[13px] leading-[1.6] mb-6 font-['Helvetica_Neue',system-ui,sans-serif] ${product.status !== 'coming_soon' ? 'text-[#666]' : 'text-[#C0BDB7]'}`}>
               {product.description}
             </p>
 
@@ -157,6 +164,20 @@ const products = await getProducts();
                   )}
                 </>
               )}
+              {product.status === 'sold_out' && (
+                <>
+                  <button
+                    disabled
+                    class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#B0ADA8] font-['Helvetica_Neue',system-ui,sans-serif] cursor-not-allowed"
+                    style="padding: 14px 28px; border-radius: 0 14px 0 0; background: #D8D5CF;"
+                  >
+                    Sold Out
+                  </button>
+                  <span class="text-[11px] uppercase tracking-[0.1em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif]">
+                    0 Left
+                  </span>
+                </>
+              )}
               {product.status === 'coming_soon' && (
                 <button
                   class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#0D0D0D] font-['Helvetica_Neue',system-ui,sans-serif] cursor-pointer hover:border-[#0D0D0D] transition-colors"
@@ -171,6 +192,7 @@ const products = await getProducts();
         </>
       ))}
     </div>
+    )}
   </section>
 
   <!-- ─── Footer ────────────────────────────────────────────────────────── -->
@@ -221,6 +243,20 @@ const products = await getProducts();
 </style>
 
 <script is:inline>
+  function updateCartBadge(cart) {
+    var count = Object.values(cart).reduce(function(s, q) { return s + q; }, 0);
+    var badge = document.getElementById('cart-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 9 ? '9+' : count;
+      badge.classList.remove('hidden');
+      badge.classList.add('flex');
+    } else {
+      badge.classList.add('hidden');
+      badge.classList.remove('flex');
+    }
+  }
+
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('[data-product-id]');
     if (!btn) return;
@@ -229,6 +265,7 @@ const products = await getProducts();
     var cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
     cart[id] = (cart[id] || 0) + 1;
     localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
+    updateCartBadge(cart);
     btn.textContent = 'Added ✓';
     setTimeout(function() { btn.textContent = 'Add to Cart'; }, 1200);
   });

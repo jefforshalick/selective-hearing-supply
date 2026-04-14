@@ -3,6 +3,14 @@ import { env } from 'cloudflare:workers';
 const COOKIE_NAME = 'sh-admin-auth';
 const SALT = 'sh-supply-admin-2026';
 
+function getAdminPassword(): string | undefined {
+  // cloudflare:workers env (production + dev via platform proxy)
+  const cfPassword = (env as any)?.ADMIN_PASSWORD;
+  if (cfPassword) return cfPassword;
+  // Vite import.meta.env fallback for local dev
+  return (import.meta.env as any).ADMIN_PASSWORD;
+}
+
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + SALT);
@@ -13,13 +21,13 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifyPassword(password: string): Promise<string | null> {
-  const adminPassword = (env as any).ADMIN_PASSWORD;
+  const adminPassword = getAdminPassword();
   if (!adminPassword || password !== adminPassword) return null;
   return hashPassword(password);
 }
 
 export async function isValidToken(token: string): Promise<boolean> {
-  const adminPassword = (env as any).ADMIN_PASSWORD;
+  const adminPassword = getAdminPassword();
   if (!adminPassword) return false;
   const expected = await hashPassword(adminPassword);
   return token === expected;
