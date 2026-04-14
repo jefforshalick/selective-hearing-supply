@@ -1,14 +1,12 @@
 import type { APIRoute } from 'astro';
 import Stripe from 'stripe';
-import { products } from '../../data/products';
+import { env } from 'cloudflare:workers';
+import { getProducts } from '../../lib/products';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  // Support both Cloudflare Workers runtime env and local Vite env
-  const runtime = (locals as any).runtime;
-  const secretKey: string | undefined =
-    runtime?.env?.STRIPE_SECRET_KEY ?? import.meta.env.STRIPE_SECRET_KEY;
+export const POST: APIRoute = async ({ request }) => {
+  const secretKey: string | undefined = (env as any).STRIPE_SECRET_KEY;
 
   if (!secretKey) {
     return new Response(JSON.stringify({ error: 'Stripe not configured' }), {
@@ -35,6 +33,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   // Build Stripe line items from cart
+  const products = await getProducts();
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   for (const [id, qty] of Object.entries(cart)) {
     if (!qty || qty < 1) continue;
@@ -112,10 +111,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: any) {
-    console.error('Stripe error:', err.message);
-    return new Response(JSON.stringify({ error: 'Failed to create checkout session' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const message = err?.message ?? 'Unknown error';
+    console.error('Stripe error:', message);
+    return new Response(
+      JSON.stringify({ error: 'Failed to create checkout session', detail: message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 };

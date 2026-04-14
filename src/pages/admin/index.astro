@@ -1,0 +1,86 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getProducts } from '../../lib/products';
+
+const products = await getProducts();
+
+const statusLabel: Record<string, string> = {
+  in_stock: 'In Stock',
+  sold_out: 'Sold Out',
+  coming_soon: 'Coming Soon',
+};
+const statusColor: Record<string, string> = {
+  in_stock: '#FF7136',
+  sold_out: '#666',
+  coming_soon: '#888',
+};
+---
+
+<AdminLayout title="Products" activeNav="products">
+
+  <a slot="actions"
+     href="/admin/product/new"
+     style="display:inline-flex; align-items:center; gap:8px; background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 22px; text-decoration:none; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+     onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Product
+  </a>
+
+  {products.length === 0 ? (
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 0; gap:16px;">
+      <p style="color:#555; font-size:14px;">No products yet.</p>
+      <a href="/admin/product/new" style="color:#FF7136; font-size:12px; text-decoration:underline; text-underline-offset:3px;">Add your first product →</a>
+    </div>
+  ) : (
+    <div style="border:1px solid #2A2A2A; overflow:hidden;">
+
+      <!-- Table header -->
+      <div style="display:grid; grid-template-columns:1fr 120px 80px 100px 80px; gap:0; padding:10px 20px; background:#141414; border-bottom:1px solid #2A2A2A;">
+        {['Product', 'Price', 'Stock', 'Status', ''].map(h => (
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555; font-weight:500;">{h}</span>
+        ))}
+      </div>
+
+      <!-- Rows -->
+      {products.map((product, i) => (
+        <div style={`display:grid; grid-template-columns:1fr 120px 80px 100px 80px; align-items:center; gap:0; padding:16px 20px; ${i < products.length - 1 ? 'border-bottom:1px solid #1E1E1E;' : ''} transition:background 0.12s;`}
+             onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
+
+          <!-- Name + category -->
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span style="font-family:'Clash Display',system-ui,sans-serif; font-weight:700; font-size:16px; text-transform:uppercase; letter-spacing:-0.01em; color:#F5F5F0;">{product.name}</span>
+            <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">{product.category}</span>
+          </div>
+
+          <!-- Price -->
+          <span style="font-size:15px; font-weight:700; color:#F5F5F0; letter-spacing:-0.01em;">
+            {product.price !== null ? `$${product.price}` : '—'}
+          </span>
+
+          <!-- Stock -->
+          <span style={`font-size:14px; font-weight:500; ${product.stock !== null && product.stock > 0 ? 'color:#F5F5F0;' : 'color:#555;'}`}>
+            {product.stock !== null ? product.stock : '—'}
+          </span>
+
+          <!-- Status -->
+          <span style={`display:inline-flex; align-items:center; gap:5px; font-size:10px; text-transform:uppercase; letter-spacing:0.12em; font-weight:600; color:${statusColor[product.status]};`}>
+            <span style={`width:5px; height:5px; border-radius:50%; background:${statusColor[product.status]}; flex-shrink:0;`}></span>
+            {statusLabel[product.status]}
+          </span>
+
+          <!-- Actions -->
+          <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+            <a href={`/admin/product/${product.id}`}
+               style="font-size:11px; color:#888; text-decoration:none; padding:5px 10px; border:1px solid #2A2A2A; transition:all 0.15s;"
+               onmouseover="this.style.borderColor='#FF7136';this.style.color='#FF7136'" onmouseout="this.style.borderColor='#2A2A2A';this.style.color='#888'">
+              Edit
+            </a>
+          </div>
+
+        </div>
+      ))}
+    </div>
+  )}
+
+</AdminLayout>
