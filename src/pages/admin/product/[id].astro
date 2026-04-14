@@ -110,30 +110,34 @@ if (Astro.request.method === 'POST') {
       </div>
     </div>
 
-    <!-- Save / Delete -->
-    <div style="display:flex; align-items:center; justify-content:space-between; padding-top:4px; border-top:1px solid #1E1E1E; padding-top:20px;">
-      <div style="display:flex; gap:12px;">
-        <button type="submit"
-                style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
-                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-          Save Changes
-        </button>
-        <a href="/admin"
-           style="display:inline-flex; align-items:center; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; color:#888; text-decoration:none; border:1px solid #2A2A2A; transition:all 0.15s;"
-           onmouseover="this.style.color='#F5F5F0';this.style.borderColor='#555'" onmouseout="this.style.color='#888';this.style.borderColor='#2A2A2A'">
-          Cancel
-        </a>
-      </div>
-
-      <!-- Delete -->
-      <form method="POST" onsubmit="return confirm('Delete this product? This cannot be undone.')">
-        <input type="hidden" name="_intent" value="delete" />
-        <button type="submit"
-                style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 20px; color:#555; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
-                onmouseover="this.style.color='#ff4444';this.style.borderColor='#ff4444'" onmouseout="this.style.color='#555';this.style.borderColor='#2A2A2A'">
-          Delete
-        </button>
-      </form>
+    <!-- Save -->
+    <div style="display:flex; gap:12px; padding-top:20px; border-top:1px solid #1E1E1E;">
+      <button type="submit"
+              style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+              onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+        Save Changes
+      </button>
+      <a href="/admin"
+         style="display:inline-flex; align-items:center; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; color:#888; text-decoration:none; border:1px solid #2A2A2A; transition:all 0.15s;"
+         onmouseover="this.style.color='#F5F5F0';this.style.borderColor='#555'" onmouseout="this.style.color='#888';this.style.borderColor='#2A2A2A'">
+        Cancel
+      </a>
     </div>
   </form>
+
+  <!-- Delete — separate form, outside the save form to avoid nesting -->
+  <div style="max-width:600px; margin-top:40px; padding-top:24px; border-top:1px solid #1E1E1E; display:flex; align-items:center; justify-content:space-between;">
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <span style="font-size:12px; color:#555; font-weight:500;">Danger zone</span>
+      <span style="font-size:11px; color:#444;">Permanently remove this product from the store.</span>
+    </div>
+    <form method="POST" onsubmit="return confirm('Delete this product? This cannot be undone.')">
+      <input type="hidden" name="_intent" value="delete" />
+      <button type="submit"
+              style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 20px; color:#555; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
+              onmouseover="this.style.color='#ff4444';this.style.borderColor='#ff4444'" onmouseout="this.style.color='#555';this.style.borderColor='#2A2A2A'">
+        Delete Product
+      </button>
+    </form>
+  </div>
 </AdminLayout>

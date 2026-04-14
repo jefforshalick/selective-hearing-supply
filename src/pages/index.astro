@@ -219,16 +219,16 @@ const products = await getProducts();
   }
 </style>
 
-<script>
-  document.querySelectorAll('[data-product-id]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = (btn as HTMLElement).dataset.productId!;
-      const price = Number((btn as HTMLElement).dataset.productPrice);
-      const cart: Record<string, number> = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
-      cart[id] = (cart[id] || 0) + 1;
-      localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
-      btn.textContent = 'Added ✓';
-      setTimeout(() => { btn.textContent = 'Add to Cart'; }, 1200);
-    });
+<script is:inline>
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-product-id]');
+    if (!btn) return;
+    var id = btn.dataset.productId;
+    if (!id) return;
+    var cart = JSON.parse(localStorage.getItem('sh-supply-cart') || '{}');
+    cart[id] = (cart[id] || 0) + 1;
+    localStorage.setItem('sh-supply-cart', JSON.stringify(cart));
+    btn.textContent = 'Added ✓';
+    setTimeout(function() { btn.textContent = 'Add to Cart'; }, 1200);
   });
 </script>
