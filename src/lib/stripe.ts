@@ -30,16 +30,20 @@ export async function syncProductToStripe(
   // Create or update the Stripe product
   let stripeProductId = product.stripe_product_id;
 
+  const images = product.image ? [product.image] : undefined;
+
   if (stripeProductId) {
     await stripe.products.update(stripeProductId, {
       name: product.name,
       description: product.description || undefined,
+      images,
       metadata,
     });
   } else {
     const created = await stripe.products.create({
       name: product.name,
       description: product.description || undefined,
+      images,
       metadata,
     });
     stripeProductId = created.id;
@@ -89,6 +93,10 @@ export async function createPaymentLink(
   const stripe = getStripe();
   const link = await stripe.paymentLinks.create({
     line_items: items.map(({ stripePriceId, quantity }) => ({ price: stripePriceId, quantity })),
+    shipping_address_collection: {
+      allowed_countries: ['US'],
+    },
+    phone_number_collection: { enabled: true },
   });
   return link.url;
 }

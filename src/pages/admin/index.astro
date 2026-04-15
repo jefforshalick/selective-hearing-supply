@@ -75,16 +75,29 @@ const statusColor: Record<string, string> = {
     <div style="border:1px solid #2A2A2A; overflow:hidden;">
 
       <!-- Table header -->
-      <div style="display:grid; grid-template-columns:1fr 100px 80px 120px 80px 80px; gap:0; padding:10px 20px; background:#141414; border-bottom:1px solid #2A2A2A;">
+      <div style="display:grid; grid-template-columns:32px 1fr 100px 80px 120px 80px 80px; gap:0; padding:10px 20px; background:#141414; border-bottom:1px solid #2A2A2A;">
+        <span></span>
         {['Product', 'Price', 'Stock', 'Status', 'Stripe', ''].map((h, i) => (
           <span style={`font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555; font-weight:500;${i === 4 ? ' text-align:center;' : ''}`}>{h}</span>
         ))}
       </div>
 
       <!-- Rows -->
+      <div id="product-list">
       {products.map((product, i) => (
-        <div style={`display:grid; grid-template-columns:1fr 100px 80px 120px 80px 80px; align-items:center; gap:0; padding:16px 20px; ${i < products.length - 1 ? 'border-bottom:1px solid #1E1E1E;' : ''} transition:background 0.12s;`}
+        <div data-id={product.id} draggable="true"
+             style={`display:grid; grid-template-columns:32px 1fr 100px 80px 120px 80px 80px; align-items:center; gap:0; padding:16px 20px; ${i < products.length - 1 ? 'border-bottom:1px solid #1E1E1E;' : ''} transition:background 0.12s; cursor:default;`}
              onmouseover="this.style.background='#111'" onmouseout="this.style.background='transparent'">
+
+          <!-- Drag handle -->
+          <div class="drag-handle" style="cursor:grab; color:#333; display:flex; align-items:center; user-select:none;"
+               title="Drag to reorder">
+            <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
+              <circle cx="4" cy="3" r="1.5"/><circle cx="8" cy="3" r="1.5"/>
+              <circle cx="4" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/>
+              <circle cx="4" cy="13" r="1.5"/><circle cx="8" cy="13" r="1.5"/>
+            </svg>
+          </div>
 
           <!-- Name + category -->
           <div style="display:flex; flex-direction:column; gap:3px;">
@@ -124,7 +137,56 @@ const statusColor: Record<string, string> = {
 
         </div>
       ))}
+      </div>
     </div>
   )}
+
+<script>
+  const list = document.getElementById('product-list');
+  if (list) {
+    let dragging: HTMLElement | null = null;
+
+    list.addEventListener('dragstart', (e) => {
+      const row = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
+      if (!row) return;
+      dragging = row;
+      setTimeout(() => row.style.opacity = '0.4', 0);
+    });
+
+    list.addEventListener('dragend', () => {
+      if (dragging) dragging.style.opacity = '1';
+      dragging = null;
+      list.querySelectorAll('[data-id]').forEach(r => (r as HTMLElement).style.borderTop = '');
+    });
+
+    list.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const row = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
+      if (!row || row === dragging) return;
+      const rect = row.getBoundingClientRect();
+      const after = (e as DragEvent).clientY > rect.top + rect.height / 2;
+      list.querySelectorAll('[data-id]').forEach(r => (r as HTMLElement).style.borderTop = '');
+      if (!after) row.style.borderTop = '2px solid #FF7136';
+      else (row.nextElementSibling as HTMLElement | null)?.style && ((row.nextElementSibling as HTMLElement).style.borderTop = '2px solid #FF7136');
+    });
+
+    list.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const target = (e.target as HTMLElement).closest('[data-id]') as HTMLElement;
+      if (!target || !dragging || target === dragging) return;
+      const rect = target.getBoundingClientRect();
+      const after = (e as DragEvent).clientY > rect.top + rect.height / 2;
+      if (after) target.after(dragging);
+      else target.before(dragging);
+
+      const ids = Array.from(list.querySelectorAll('[data-id]')).map(r => r.getAttribute('data-id')!);
+      await fetch('/api/admin/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+    });
+  }
+</script>
 
 </AdminLayout>

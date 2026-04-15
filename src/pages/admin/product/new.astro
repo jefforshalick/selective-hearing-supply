@@ -39,10 +39,8 @@ if (Astro.request.method === 'POST') {
 
     // Upload image after product exists in KV (we need the id as the key)
     if (imageFile && imageFile.size > 0) {
-      try {
-        product.image = await uploadImage(imageFile, product.id);
-        await upsertProduct(product);
-      } catch {}
+      product.image = await uploadImage(imageFile, product.id);
+      await upsertProduct(product);
     }
 
     // Sync to Stripe — non-fatal

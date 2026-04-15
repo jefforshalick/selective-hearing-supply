@@ -105,25 +105,21 @@ const products = await getProducts();
           <div class="product-card flex flex-col" style="min-width: 0;">
 
             {/* Image / placeholder */}
-            {product.status === 'coming_soon' ? (
-              <div class="product-img w-full mb-6 flex items-center justify-center"
-                   style="border: 2px dashed #C4C2BC; background: #ECEAE6;">
+            <div class="product-img w-full mb-6 relative overflow-hidden flex items-center justify-center"
+                 style={product.status === 'coming_soon' && !product.image ? 'border: 2px dashed #C4C2BC; background: #ECEAE6;' : 'background: #0D0D0D;'}>
+              {product.image ? (
+                <img src={product.image} alt={product.name} class="w-full h-full object-cover" />
+              ) : product.status === 'coming_soon' ? (
                 <span class="text-[11px] uppercase tracking-[0.2em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif] text-center leading-relaxed">
-                  Coming<br/>Soon
+                  Coming Soon<br/>Image
                 </span>
-              </div>
-            ) : (
-              <div class="product-img w-full mb-6 bg-[#0D0D0D] relative overflow-hidden flex items-center justify-center">
-                {product.image ? (
-                  <img src={product.image} alt={product.name} class="w-full h-full object-cover" />
-                ) : (
-                  <div class="flex flex-col items-center gap-2.5 opacity-40">
-                    <span class="w-8 h-px bg-[#FF7136]"></span>
-                    <span class="text-[10px] uppercase tracking-[0.2em] text-[#F5F5F0] font-['Helvetica_Neue',system-ui,sans-serif]">Image</span>
-                  </div>
-                )}
-              </div>
-            )}
+              ) : (
+                <div class="flex flex-col items-center gap-2.5 opacity-40">
+                  <span class="w-8 h-px bg-[#FF7136]"></span>
+                  <span class="text-[10px] uppercase tracking-[0.2em] text-[#F5F5F0] font-['Helvetica_Neue',system-ui,sans-serif]">Image</span>
+                </div>
+              )}
+            </div>
 
             {/* Category + price */}
             <div class="flex items-start justify-between mb-1.5">
@@ -179,13 +175,18 @@ const products = await getProducts();
                 </>
               )}
               {product.status === 'coming_soon' && (
-                <button
-                  disabled
-                  class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#B0ADA8] font-['Helvetica_Neue',system-ui,sans-serif] cursor-not-allowed"
-                  style="padding: 14px 28px; border-radius: 0 14px 0 0; background: #D8D5CF;"
-                >
-                  Add to Cart
-                </button>
+                <>
+                  <button
+                    disabled
+                    class="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.15em] text-[#B0ADA8] font-['Helvetica_Neue',system-ui,sans-serif] cursor-not-allowed"
+                    style="padding: 14px 28px; border-radius: 0 14px 0 0; background: #D8D5CF;"
+                  >
+                    Add to Cart
+                  </button>
+                  <span class="text-[11px] uppercase tracking-[0.1em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif]">
+                    Coming Soon
+                  </span>
+                </>
               )}
             </div>
 

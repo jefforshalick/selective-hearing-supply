@@ -33,11 +33,7 @@ if (Astro.request.method === 'POST') {
       // Handle image upload
       const imageFile = form.get('image_file') as File | null;
       if (imageFile && imageFile.size > 0) {
-        try {
-          product.image = await uploadImage(imageFile, product.id);
-        } catch (e: any) {
-          error = `Image upload failed: ${e.message}`;
-        }
+        product.image = await uploadImage(imageFile, product.id);
       } else if (form.get('image_url')?.toString().trim()) {
         product.image = form.get('image_url')!.toString().trim();
       } else if (form.get('remove_image') === '1') {
