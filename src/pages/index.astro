@@ -111,7 +111,7 @@ const products = await getProducts();
                 <img src={product.image} alt={product.name} class="w-full h-full object-cover" />
               ) : product.status === 'coming_soon' ? (
                 <span class="text-[11px] uppercase tracking-[0.2em] text-[#999] font-['Helvetica_Neue',system-ui,sans-serif] text-center leading-relaxed">
-                  Coming Soon<br/>Image
+                  Image<br/>Coming Soon
                 </span>
               ) : (
                 <div class="flex flex-col items-center gap-2.5 opacity-40">
