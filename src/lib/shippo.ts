@@ -91,10 +91,12 @@ export async function validateAddress(address: ShippoAddress): Promise<ShippoVal
 }
 
 // ── Address parser ────────────────────────────────────────────────────────────
-// Accepts common single-line formats:
-//   "123 Main St, Austin, TX 78701"
-//   "123 Main St, Austin, TX 78701, US"
-//   "Flat 5, 10 Downing St, London, SW1A 2AA, GB"
+// Handles formats like:
+//   "123 Main St, Austin, TX 78701"           — city then ST ZIP combined
+//   "123 Main St, Austin, TX, 78701"           — city then ST and ZIP separate
+//   "609 Graham St, Cleburne TX 76033"         — city+state+zip in last segment
+//   "2 NW 79th St, Kansas City, Missouri 64128" — full state name
+//   "Flat 5, 10 Downing St, London, SW1A 2AA, GB" — international
 export function parseAddressString(raw: string): ShippoAddress {
   const normalized = raw.replace(/\r?\n/g, ', ').replace(/\s{2,}/g, ' ').trim();
   const parts = normalized.split(',').map((p) => p.trim()).filter(Boolean);
@@ -103,7 +105,7 @@ export function parseAddressString(raw: string): ShippoAddress {
 
   let remaining = [...parts];
 
-  // Detect country at end
+  // Strip country from end
   let country = 'US';
   const countryCode = normalizeCountry(remaining[remaining.length - 1]);
   if (countryCode) {
@@ -113,45 +115,83 @@ export function parseAddressString(raw: string): ShippoAddress {
 
   if (remaining.length < 2) throw new Error(`Cannot parse address (too few parts after country): "${raw}"`);
 
-  // Detect state + zip
-  // Format A (combined): "TX 78701" or "TX 78701-1234" or "OH. 44221" or "ON M5V 2T6"
-  // Format B (separate): [..., "TX", "78701"] or [..., "ON", "L4N 0V8"]
   const lastPart = remaining[remaining.length - 1];
   const secondLastPart = remaining.length >= 2 ? remaining[remaining.length - 2] : '';
   let state = '';
   let zip = '';
+  let city = '';
 
+  // Strategy 1: last segment is "ST ZIP" — "TX 78701", "OH. 44221", "ON M5V 2T6"
   const combinedMatch = lastPart.match(/^([A-Z]{2}\.?)\s+([\w\s-]{3,10})$/i);
+
+  // Strategy 2: last two segments are "ST" and "ZIP" — "TX", "78701"
   const separateStateMatch = /^[A-Z]{2}\.?$/i.test(secondLastPart);
 
+  // Strategy 3: last segment is "City ST ZIP" — "Cleburne TX 76033", "San Diego CA 92129"
+  const cityStateZipMatch = lastPart.match(/^(.+?)\s+([A-Z]{2})\s+([\w-]{4,10})$/i);
+
+  // Strategy 4: last segment is "StateName ZIP" — "Missouri 64128", "Massachusetts 01970"
+  const stateNameZipMatch = lastPart.match(/^([A-Za-z][A-Za-z\s]{3,}?)\s+([\w-]{4,10})$/);
+  const fullStateAbbr = stateNameZipMatch ? US_STATE_NAMES[stateNameZipMatch[1].trim().toLowerCase()] : undefined;
+
   if (combinedMatch) {
-    // "TX 78701" or "OH. 44221"
     state = combinedMatch[1].replace(/\./g, '').toUpperCase();
     zip = combinedMatch[2].trim().toUpperCase();
     remaining = remaining.slice(0, -1);
+    city = remaining[remaining.length - 1];
+    remaining = remaining.slice(0, -1);
   } else if (separateStateMatch) {
-    // "..., TX, 78701" or "..., ON, L4N 0V8"
     state = secondLastPart.replace(/\./g, '').toUpperCase();
     zip = lastPart.toUpperCase();
     remaining = remaining.slice(0, -2);
+    city = remaining[remaining.length - 1];
+    remaining = remaining.slice(0, -1);
+  } else if (cityStateZipMatch) {
+    city = cityStateZipMatch[1].trim();
+    state = cityStateZipMatch[2].toUpperCase();
+    zip = cityStateZipMatch[3].toUpperCase();
+    remaining = remaining.slice(0, -1); // remove the whole "City ST ZIP" segment
+  } else if (fullStateAbbr && stateNameZipMatch) {
+    state = fullStateAbbr;
+    zip = stateNameZipMatch[2].toUpperCase();
+    remaining = remaining.slice(0, -1);
+    city = remaining[remaining.length - 1];
+    remaining = remaining.slice(0, -1);
   } else {
-    // International zip with no state, e.g. "SW1A 2AA" or "2000"
+    // International: treat last segment as zip, no state
     zip = lastPart;
+    remaining = remaining.slice(0, -1);
+    city = remaining[remaining.length - 1];
     remaining = remaining.slice(0, -1);
   }
 
-  if (remaining.length < 1) throw new Error(`Cannot parse address (no city/street): "${raw}"`);
+  if (!city) throw new Error(`Cannot parse address (no city): "${raw}"`);
 
-  // City is the last of remaining
-  const city = remaining[remaining.length - 1];
-  remaining = remaining.slice(0, -1);
-
-  // Everything left is street
   const street = remaining.join(', ');
   if (!street) throw new Error(`Cannot parse address (no street): "${raw}"`);
 
   return { street1: street, city, state, zip, country };
 }
+
+const US_STATE_NAMES: Record<string, string> = {
+  'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+  'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+  'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID',
+  'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS',
+  'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+  'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+  'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV',
+  'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK',
+  'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT',
+  'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA', 'west virginia': 'WV',
+  'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC',
+  // Canadian provinces
+  'ontario': 'ON', 'quebec': 'QC', 'british columbia': 'BC', 'alberta': 'AB',
+  'manitoba': 'MB', 'saskatchewan': 'SK', 'nova scotia': 'NS',
+  'new brunswick': 'NB', 'newfoundland': 'NL', 'prince edward island': 'PE',
+};
 
 const COUNTRY_MAP: Record<string, string> = {
   'united states': 'US', 'united states of america': 'US', 'usa': 'US',
