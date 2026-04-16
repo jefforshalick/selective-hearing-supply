@@ -46,7 +46,6 @@ export const POST: APIRoute = async ({ request }) => {
       // Dynamic: calculate via Shippo
       const rawAddress = form.get('address')?.toString().trim() ?? '';
       if (!rawAddress) return new Response(JSON.stringify({ error: 'Address is required for dynamic shipping.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-      if (!email) return new Response(JSON.stringify({ error: 'Email is required for dynamic shipping.' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
 
       const fromKey = form.get('from')?.toString().trim().toLowerCase() ?? '';
       const fromAddr = settings.shipFromAddresses.find((a) => a.name.toLowerCase() === fromKey);
@@ -91,7 +90,11 @@ export const POST: APIRoute = async ({ request }) => {
       shippingService = `${rate.provider} ${rate.servicelevel.name}`;
       deliveryAddress = rawAddress;
 
-      url = await createCheckoutSession(items, email, { amount: shippingCostNum, label: shippingService });
+      if (email) {
+        url = await createCheckoutSession(items, email, { amount: shippingCostNum, label: shippingService });
+      } else {
+        url = await createPaymentLink(items, shippingCostNum);
+      }
 
     } else {
       // Flat rate
