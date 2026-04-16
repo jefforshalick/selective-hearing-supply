@@ -6,11 +6,17 @@ function getResendKey(): string {
   return key;
 }
 
+export interface OrderLineItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export async function sendPaymentLinkEmail({
   to,
   name,
   paymentLink,
-  items,
+  lineItems,
   shippingCost,
   shippingService,
   deliveryAddress,
@@ -18,13 +24,18 @@ export async function sendPaymentLinkEmail({
   to: string;
   name?: string;
   paymentLink: string;
-  items: string;
+  lineItems: OrderLineItem[];
   shippingCost: string;
   shippingService: string;
   deliveryAddress: string;
 }): Promise<void> {
   const key = getResendKey();
   const displayName = name || 'there';
+  const shippingCostNum = parseFloat(shippingCost);
+  const subtotal = lineItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const total = subtotal + shippingCostNum;
+
+  const fmt = (n: number) => `$${n.toFixed(2)}`;
 
   const html = `<!DOCTYPE html>
 <html>
@@ -69,24 +80,52 @@ export async function sendPaymentLinkEmail({
 
               <!-- Order summary -->
               <table width="100%" cellpadding="0" cellspacing="0" style="background:#141414; border:1px solid #2A2A2A; margin-bottom:24px;">
+
+                <!-- Line items -->
+                ${lineItems.map((item, i) => `
                 <tr>
-                  <td style="padding:16px 20px; border-bottom:1px solid #1E1E1E;">
-                    <p style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Items</p>
-                    <p style="margin:4px 0 0; font-size:14px; color:#F5F5F0;">${items}</p>
+                  <td style="padding:${i === 0 ? '16px' : '4px'} 20px ${i === lineItems.length - 1 ? '16px' : '4px'}; border-bottom:${i === lineItems.length - 1 ? '1px solid #1E1E1E' : 'none'};">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:14px; color:#F5F5F0;">${item.name}${item.quantity > 1 ? ` <span style="color:#555;">× ${item.quantity}</span>` : ''}</td>
+                        <td align="right" style="font-size:14px; color:#F5F5F0; white-space:nowrap;">${fmt(item.unitPrice * item.quantity)}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>`).join('')}
+
+                <!-- Shipping -->
+                <tr>
+                  <td style="padding:12px 20px; border-bottom:1px solid #1E1E1E;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:14px; color:#555;">Shipping <span style="font-size:12px;">(${shippingService})</span></td>
+                        <td align="right" style="font-size:14px; color:#555; white-space:nowrap;">${fmt(shippingCostNum)}</td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
+
+                <!-- Total -->
                 <tr>
-                  <td style="padding:16px 20px; border-bottom:1px solid #1E1E1E;">
-                    <p style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Shipping</p>
-                    <p style="margin:4px 0 0; font-size:14px; color:#F5F5F0;">$${shippingCost} <span style="color:#555; font-size:12px;">(${shippingService})</span></p>
+                  <td style="padding:14px 20px; border-bottom:1px solid #1E1E1E;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:#F5F5F0;">Total</td>
+                        <td align="right" style="font-size:16px; font-weight:700; color:#FF7136; white-space:nowrap;">${fmt(total)}</td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
+
+                <!-- Delivering to -->
                 <tr>
                   <td style="padding:16px 20px;">
                     <p style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Delivering to</p>
                     <p style="margin:4px 0 0; font-size:14px; color:#F5F5F0;">${deliveryAddress}</p>
                   </td>
                 </tr>
+
               </table>
 
               <p style="margin:0 0 24px; font-size:15px; color:#888; line-height:1.6;">Click the button below to complete your payment. The link is unique to your order.</p>

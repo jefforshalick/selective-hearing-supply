@@ -5,6 +5,7 @@ import { getSettings } from '../../../lib/settings';
 import { getCheapestRate, parseAddressString } from '../../../lib/shippo';
 import { createCheckoutSession } from '../../../lib/stripe';
 import { sendPaymentLinkEmail } from '../../../lib/resend';
+import type { OrderLineItem } from '../../../lib/resend';
 import type { ShippoAddress, ShippoParcel } from '../../../lib/shippo';
 
 // Minimal CSV parser — handles quoted fields
@@ -158,20 +159,23 @@ export const POST: APIRoute = async ({ request }) => {
 
         // Send email if requested
         if (sendEmails) {
-          const itemSummary = productCols
+          const emailLineItems: OrderLineItem[] = productCols
             .filter((col) => parseInt(row[col] ?? '0', 10) > 0)
             .map((col) => {
               const qty = parseInt(row[col], 10);
-              const name = productMap.get(col)?.name ?? col;
-              return qty > 1 ? `${qty}× ${name}` : name;
-            })
-            .join(', ');
+              const product = productMap.get(col);
+              return {
+                name: product?.name ?? col,
+                quantity: qty,
+                unitPrice: product?.price ?? 0,
+              };
+            });
 
           await sendPaymentLinkEmail({
             to: email,
             name: row['name'] || undefined,
             paymentLink: url,
-            items: itemSummary,
+            lineItems: emailLineItems,
             shippingCost: shippingCost.toFixed(2),
             shippingService: `${rate.provider} ${rate.servicelevel.name}`,
             deliveryAddress: row['address'] ?? '',
