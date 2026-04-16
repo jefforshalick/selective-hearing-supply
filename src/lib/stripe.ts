@@ -79,6 +79,40 @@ export async function syncProductToStripe(
   return { stripe_product_id: stripeProductId, stripe_price_id: newPrice.id };
 }
 
+export async function createCheckoutSession(
+  items: { stripePriceId: string; quantity: number }[],
+  customerEmail: string,
+  shipping?: { amount: number; label: string }
+): Promise<string> {
+  const stripe = getStripe();
+
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = items.map(
+    ({ stripePriceId, quantity }) => ({ price: stripePriceId, quantity })
+  );
+
+  // Add shipping as a separate line item so no address collection is needed in Stripe
+  if (shipping && shipping.amount > 0) {
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        product_data: { name: `Shipping (${shipping.label})` },
+        unit_amount: Math.round(shipping.amount * 100),
+      },
+      quantity: 1,
+    });
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    customer_email: customerEmail,
+    line_items: lineItems,
+    success_url: 'https://supply.selectivehear.ing/success',
+    cancel_url: 'https://supply.selectivehear.ing',
+  });
+
+  return session.url!;
+}
+
 export async function archiveStripeProduct(stripeProductId: string): Promise<void> {
   const stripe = getStripe();
   // Archive all active prices first, then archive the product
@@ -88,15 +122,26 @@ export async function archiveStripeProduct(stripeProductId: string): Promise<voi
 }
 
 export async function createPaymentLink(
-  items: { stripePriceId: string; quantity: number }[]
+  items: { stripePriceId: string; quantity: number }[],
+  shippingCost?: number
 ): Promise<string> {
   const stripe = getStripe();
+
+  let shippingOptions: { shipping_rate: string }[] | undefined;
+  if (shippingCost != null && shippingCost > 0) {
+    const rate = await stripe.shippingRates.create({
+      display_name: 'Shipping',
+      type: 'fixed_amount',
+      fixed_amount: { amount: Math.round(shippingCost * 100), currency: 'usd' },
+    });
+    shippingOptions = [{ shipping_rate: rate.id }];
+  }
+
   const link = await stripe.paymentLinks.create({
     line_items: items.map(({ stripePriceId, quantity }) => ({ price: stripePriceId, quantity })),
-    shipping_address_collection: {
-      allowed_countries: ['US'],
-    },
+    shipping_address_collection: { allowed_countries: ['US'] },
     phone_number_collection: { enabled: true },
+    ...(shippingOptions ? { shipping_options: shippingOptions } : {}),
   });
   return link.url;
 }

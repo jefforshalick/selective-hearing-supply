@@ -1,6 +1,70 @@
 import { env } from 'cloudflare:workers';
 import type Stripe from 'stripe';
 
+export interface ShippoAddress {
+  name?: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface ShippoParcel {
+  length: number;
+  width: number;
+  height: number;
+  distance_unit: 'in' | 'cm';
+  weight: number;
+  mass_unit: 'oz' | 'lb' | 'g' | 'kg';
+}
+
+export interface ShippoRate {
+  amount: string;
+  currency: string;
+  provider: string;
+  servicelevel: { name: string; token: string };
+  estimated_days: number | null;
+}
+
+export async function getCheapestRate(
+  from: ShippoAddress,
+  to: ShippoAddress,
+  parcel: ShippoParcel
+): Promise<ShippoRate> {
+  const key = getShippoKey();
+
+  const res = await fetch('https://api.goshippo.com/shipments/', {
+    method: 'POST',
+    headers: {
+      Authorization: `ShippoToken ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      address_from: from,
+      address_to: to,
+      parcels: [parcel],
+      async: false,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Shippo rates error ${res.status}: ${text}`);
+  }
+
+  const data = (await res.json()) as { rates: ShippoRate[] };
+  const rates = (data.rates ?? []).filter((r) => parseFloat(r.amount) > 0);
+  if (rates.length === 0) throw new Error('No rates returned from Shippo');
+
+  rates.sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
+  return rates[0];
+}
+
 function getShippoKey(): string {
   const key = (env as any)?.SHIPPO_API_KEY;
   if (!key) throw new Error('SHIPPO_API_KEY not configured');

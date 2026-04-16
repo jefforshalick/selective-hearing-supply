@@ -1,0 +1,164 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getSettings, upsertShipFromAddress, deleteShipFromAddress } from '../../lib/settings';
+import type { ShipFromAddress } from '../../lib/settings';
+
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  try {
+    const form = await Astro.request.formData();
+    const intent = form.get('_intent')?.toString();
+
+    if (intent === 'delete') {
+      await deleteShipFromAddress(form.get('id')!.toString());
+    } else {
+      const address: ShipFromAddress = {
+        id: form.get('id')?.toString() || crypto.randomUUID(),
+        name: form.get('name')?.toString().trim() ?? '',
+        company: form.get('company')?.toString().trim() || undefined,
+        street1: form.get('street1')?.toString().trim() ?? '',
+        street2: form.get('street2')?.toString().trim() || undefined,
+        city: form.get('city')?.toString().trim() ?? '',
+        state: form.get('state')?.toString().trim() ?? '',
+        zip: form.get('zip')?.toString().trim() ?? '',
+        country: form.get('country')?.toString().trim().toUpperCase() ?? 'US',
+        phone: form.get('phone')?.toString().trim() || undefined,
+      };
+      if (!address.name || !address.street1 || !address.city || !address.country) {
+        error = 'Name, street, city, and country are required.';
+      } else {
+        await upsertShipFromAddress(address);
+      }
+    }
+  } catch (e: any) {
+    error = e.message ?? 'Failed to save.';
+  }
+}
+
+const settings = await getSettings();
+const addresses = settings.shipFromAddresses;
+---
+
+<AdminLayout title="Settings" activeNav="settings">
+
+  <!-- Ship-from addresses -->
+  <div style="max-width:640px; display:flex; flex-direction:column; gap:40px;">
+
+    <div style="display:flex; flex-direction:column; gap:24px;">
+      <div>
+        <h2 style="font-size:13px; font-weight:600; color:#F5F5F0; text-transform:uppercase; letter-spacing:0.12em;">Ship-From Addresses</h2>
+        <p style="font-size:11px; color:#555; margin-top:4px;">Reference these by their short name in the bulk CSV (e.g. "Home").</p>
+      </div>
+
+      {error && <p style="font-size:12px; color:#FF7136; padding:10px 14px; border:1px solid #FF7136; background:#1a0d0a;">{error}</p>}
+
+      {/* Existing addresses */}
+      {addresses.length > 0 && (
+        <div style="border:1px solid #2A2A2A; overflow:hidden;">
+          {addresses.map((addr, i) => (
+            <div style={`display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 20px; ${i < addresses.length - 1 ? 'border-bottom:1px solid #1E1E1E;' : ''}`}>
+              <div style="display:flex; flex-direction:column; gap:3px; min-width:0;">
+                <span style="font-size:13px; font-weight:600; color:#F5F5F0;">{addr.name}</span>
+                <span style="font-size:11px; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  {[addr.street1, addr.city, addr.state, addr.zip, addr.country].filter(Boolean).join(', ')}
+                </span>
+              </div>
+              <form method="POST" style="flex-shrink:0;">
+                <input type="hidden" name="_intent" value="delete" />
+                <input type="hidden" name="id" value={addr.id} />
+                <button type="submit"
+                        style="font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:#555; background:none; border:1px solid #2A2A2A; padding:6px 12px; cursor:pointer; transition:all 0.15s;"
+                        onmouseover="this.style.color='#ff4444';this.style.borderColor='#ff4444'" onmouseout="this.style.color='#555';this.style.borderColor='#2A2A2A'">
+                  Delete
+                </button>
+              </form>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add new address form */}
+      <form method="POST" style="display:flex; flex-direction:column; gap:16px; padding:20px; border:1px solid #2A2A2A; background:#0f0f0f;">
+        <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#666; font-weight:600;">Add Address</span>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Short Name *</label>
+            <input type="text" name="name" placeholder="Home"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Company</label>
+            <input type="text" name="company" placeholder="Optional"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px; grid-column:1/3;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Street 1 *</label>
+            <input type="text" name="street1" placeholder="123 Main St"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px; grid-column:1/3;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Street 2</label>
+            <input type="text" name="street2" placeholder="Apt, suite, etc."
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">City *</label>
+            <input type="text" name="city" placeholder="Austin"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">State / Province</label>
+            <input type="text" name="state" placeholder="TX"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">ZIP / Postal Code</label>
+            <input type="text" name="zip" placeholder="78701"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Country * (2-letter)</label>
+            <input type="text" name="country" placeholder="US" maxlength="2"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%; text-transform:uppercase;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Phone</label>
+            <input type="tel" name="phone" placeholder="+1 512 000 0000"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:9px 12px; outline:none; width:100%;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+        </div>
+
+        <div>
+          <button type="submit"
+                  style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 24px; border:none; cursor:pointer; border-radius:0 8px 0 0; transition:opacity 0.15s;"
+                  onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            Add Address
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</AdminLayout>

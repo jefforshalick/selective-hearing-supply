@@ -3,9 +3,12 @@ export const prerender = false;
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getProducts } from '../../lib/products';
 import { createPaymentLink } from '../../lib/stripe';
+import { getSettings } from '../../lib/settings';
 
 const products = await getProducts();
 const pricedProducts = products.filter((p) => p.stripe_price_id);
+const settings = await getSettings();
+const hasShipFrom = settings.shipFromAddresses.length > 0;
 
 let paymentLink = '';
 let error = '';
@@ -22,10 +25,12 @@ if (Astro.request.method === 'POST') {
       }
     }
 
+    const shipping = parseFloat(form.get('shipping')?.toString() ?? '0') || 0;
+
     if (items.length === 0) {
       error = 'Add at least one item before generating a link.';
     } else {
-      paymentLink = await createPaymentLink(items);
+      paymentLink = await createPaymentLink(items, shipping);
     }
   } catch (e: any) {
     error = e.message ?? 'Failed to generate payment link.';
@@ -78,6 +83,13 @@ if (Astro.request.method === 'POST') {
           {error && <p style="font-size:12px; color:#FF7136;">{error}</p>}
 
           <div style="display:flex; align-items:center; gap:12px;">
+            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap;">Shipping ($)</label>
+            <input type="number" name="shipping" min="0" step="0.01" placeholder="0.00" value="0"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:10px 12px; outline:none; width:120px;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px;">
             <button type="submit"
                     style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
                     onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
@@ -107,5 +119,91 @@ if (Astro.request.method === 'POST') {
       </form>
     )}
 
+    <!-- Bulk CSV section -->
+    <div style="padding-top:32px; border-top:1px solid #1E1E1E; display:flex; flex-direction:column; gap:20px;">
+      <div>
+        <h2 style="font-size:13px; font-weight:600; color:#F5F5F0; text-transform:uppercase; letter-spacing:0.12em;">Bulk from CSV</h2>
+        <p style="font-size:11px; color:#555; margin-top:4px; line-height:1.6;">
+          Upload a CSV with one row per customer. Shipping is calculated automatically via Shippo.
+          The file is returned with <code style="font-size:10px; color:#888;">shipping_cost</code> and <code style="font-size:10px; color:#888;">payment_link</code> columns added.
+        </p>
+      </div>
+
+      {!hasShipFrom && (
+        <p style="font-size:12px; color:#FF7136;">
+          No ship-from addresses configured. <a href="/admin/settings" style="color:#FF7136; text-decoration:underline;">Add one in Settings →</a>
+        </p>
+      )}
+
+      <!-- Template download -->
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <button id="dl-template"
+                style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:11px 20px; color:#888; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
+                onmouseover="this.style.color='#F5F5F0';this.style.borderColor='#555'" onmouseout="this.style.color='#888';this.style.borderColor='#2A2A2A'">
+          Download Template
+        </button>
+        <span style="font-size:11px; color:#444;">Fill it out, then upload below.</span>
+      </div>
+
+      <!-- Upload form -->
+      <form id="bulk-form" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="file" name="csv" accept=".csv"
+               style="font-size:12px; color:#888; background:#141414; border:1px solid #2A2A2A; padding:9px 12px; width:100%; cursor:pointer;" />
+        <div style="display:flex; gap:12px; align-items:center;">
+          <button type="submit"
+                  style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+                  onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            Generate &amp; Download
+          </button>
+          <span id="bulk-status" style="font-size:12px; color:#555;"></span>
+        </div>
+      </form>
+    </div>
+
   </div>
 </AdminLayout>
+
+<script define:vars={{ productIds: pricedProducts.map(p => p.id), productNames: pricedProducts.map(p => p.name) }}>
+  // Template download
+  document.getElementById('dl-template')?.addEventListener('click', () => {
+    const fixed = ['name','email','street1','street2','city','state','zip','country','from','box_l','box_w','box_h','weight','weight_unit'];
+    const headers = [...fixed, ...productIds];
+    const example = ['Jane Smith','jane@example.com','123 Main St','','Austin','TX','78701','US','Home','10','10','5','32','oz', ...productIds.map(() => '0')];
+    const csv = [headers.join(','), example.join(',')].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'bulk-links-template.csv';
+    a.click();
+  });
+
+  // Bulk upload
+  document.getElementById('bulk-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target as HTMLFormElement;
+    const status = document.getElementById('bulk-status')!;
+    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    btn.disabled = true;
+    status.textContent = 'Processing…';
+    status.style.color = '#888';
+
+    try {
+      const data = new FormData(form);
+      const res = await fetch('/api/admin/bulk-links', { method: 'POST', body: data });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'payment-links.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      status.textContent = 'Done — check your downloads.';
+      status.style.color = '#4CAF50';
+    } catch (err: any) {
+      status.textContent = err.message ?? 'Error';
+      status.style.color = '#FF7136';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
