@@ -94,24 +94,24 @@ export async function sendPaymentLinkEmail({
                 </tr>
 
                 <!-- Line items -->
-                ${lineItems.map((item) => `
+                ${lineItems.map((item, i) => `
                 <tr>
-                  <td style="padding:12px 16px; border-bottom:1px solid #ECEAE6;">
+                  <td style="padding:12px 16px; ${i < lineItems.length - 1 ? 'border-bottom:1px solid #ECEAE6;' : ''}">
                     <span style="font-size:14px; color:#0D0D0D;">${item.name}</span>
                     ${item.quantity > 1 ? `<span style="font-size:12px; color:#999; margin-left:4px;">× ${item.quantity}</span>` : ''}
                   </td>
-                  <td align="right" style="padding:12px 16px; border-bottom:1px solid #ECEAE6; white-space:nowrap;">
+                  <td align="right" style="padding:12px 16px; white-space:nowrap; ${i < lineItems.length - 1 ? 'border-bottom:1px solid #ECEAE6;' : ''}">
                     <span style="font-size:14px; color:#0D0D0D;">${fmt(item.unitPrice * item.quantity)}</span>
                   </td>
                 </tr>`).join('')}
 
                 <!-- Shipping -->
                 <tr>
-                  <td style="padding:12px 16px; border-bottom:1px solid #D8D5CF;">
+                  <td style="padding:14px 16px; border-top:1px solid #D8D5CF; border-bottom:1px solid #D8D5CF;">
                     <span style="font-size:13px; color:#666;">Shipping</span>
                     <span style="font-size:11px; color:#999; margin-left:4px;">(${shippingService})</span>
                   </td>
-                  <td align="right" style="padding:12px 16px; border-bottom:1px solid #D8D5CF; white-space:nowrap; background:#fff;">
+                  <td align="right" style="padding:14px 16px; border-top:1px solid #D8D5CF; border-bottom:1px solid #D8D5CF; white-space:nowrap;">
                     <span style="font-size:13px; color:#666;">${fmt(shippingCostNum)}</span>
                   </td>
                 </tr>
