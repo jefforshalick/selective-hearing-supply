@@ -4,6 +4,7 @@ import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
 import { getCheapestRate, parseAddressString } from '../../../lib/shippo';
 import { createCheckoutSession } from '../../../lib/stripe';
+import { sendPaymentLinkEmail } from '../../../lib/resend';
 import type { ShippoAddress, ShippoParcel } from '../../../lib/shippo';
 
 // Minimal CSV parser — handles quoted fields
@@ -52,6 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
     const form = await request.formData();
     const file = form.get('csv') as File | null;
     if (!file) return new Response('No file', { status: 400 });
+    const sendEmails = form.get('send_emails') === 'on';
 
     const text = await file.text();
     const rows = parseCSV(text);
@@ -71,13 +73,14 @@ export const POST: APIRoute = async ({ request }) => {
       'shipping_service',
       'shipping_cost',
       'payment_link',
+      'email_sent',
       'error',
     ];
 
     const outputRows: Record<string, string>[] = [];
 
     for (const row of rows) {
-      const out: Record<string, string> = { ...row, shipping_carrier: '', shipping_service: '', shipping_cost: '', payment_link: '', error: '' };
+      const out: Record<string, string> = { ...row, shipping_carrier: '', shipping_service: '', shipping_cost: '', payment_link: '', email_sent: '', error: '' };
 
       try {
         // Build line items
@@ -152,6 +155,28 @@ export const POST: APIRoute = async ({ request }) => {
         out.shipping_service = rate.servicelevel.name;
         out.shipping_cost = shippingCost.toFixed(2);
         out.payment_link = url;
+
+        // Send email if requested
+        if (sendEmails) {
+          const itemSummary = productCols
+            .filter((col) => parseInt(row[col] ?? '0', 10) > 0)
+            .map((col) => {
+              const qty = parseInt(row[col], 10);
+              const name = productMap.get(col)?.name ?? col;
+              return qty > 1 ? `${qty}× ${name}` : name;
+            })
+            .join(', ');
+
+          await sendPaymentLinkEmail({
+            to: email,
+            name: row['name'] || undefined,
+            paymentLink: url,
+            items: itemSummary,
+            shippingCost: shippingCost.toFixed(2),
+            shippingService: `${rate.provider} ${rate.servicelevel.name}`,
+          });
+          out.email_sent = 'yes';
+        }
       } catch (e: any) {
         out.error = e.message ?? 'Unknown error';
       }
