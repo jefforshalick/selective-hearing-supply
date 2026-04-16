@@ -113,26 +113,36 @@ export function parseAddressString(raw: string): ShippoAddress {
 
   if (remaining.length < 2) throw new Error(`Cannot parse address (too few parts after country): "${raw}"`);
 
-  // Detect state+zip or just zip at end
+  // Detect state + zip
+  // Format A (combined): "TX 78701" or "TX 78701-1234" or "OH. 44221" or "ON M5V 2T6"
+  // Format B (separate): [..., "TX", "78701"] or [..., "ON", "L4N 0V8"]
   const lastPart = remaining[remaining.length - 1];
+  const secondLastPart = remaining.length >= 2 ? remaining[remaining.length - 2] : '';
   let state = '';
   let zip = '';
 
-  // US/CA: "TX 78701" or "TX 78701-1234" or "ON M5V 2T6"
-  const usMatch = lastPart.match(/^([A-Z]{2})\s+([\w-]{4,10})$/i);
-  if (usMatch) {
-    state = usMatch[1].toUpperCase();
-    zip = usMatch[2].toUpperCase();
+  const combinedMatch = lastPart.match(/^([A-Z]{2}\.?)\s+([\w\s-]{3,10})$/i);
+  const separateStateMatch = /^[A-Z]{2}\.?$/i.test(secondLastPart);
+
+  if (combinedMatch) {
+    // "TX 78701" or "OH. 44221"
+    state = combinedMatch[1].replace(/\./g, '').toUpperCase();
+    zip = combinedMatch[2].trim().toUpperCase();
     remaining = remaining.slice(0, -1);
+  } else if (separateStateMatch) {
+    // "..., TX, 78701" or "..., ON, L4N 0V8"
+    state = secondLastPart.replace(/\./g, '').toUpperCase();
+    zip = lastPart.toUpperCase();
+    remaining = remaining.slice(0, -2);
   } else {
-    // International zip with no state prefix, e.g. "SW1A 2AA" or "2000"
+    // International zip with no state, e.g. "SW1A 2AA" or "2000"
     zip = lastPart;
     remaining = remaining.slice(0, -1);
   }
 
-  if (remaining.length < 1) throw new Error(`Cannot parse address (no city): "${raw}"`);
+  if (remaining.length < 1) throw new Error(`Cannot parse address (no city/street): "${raw}"`);
 
-  // City is now the last of remaining
+  // City is the last of remaining
   const city = remaining[remaining.length - 1];
   remaining = remaining.slice(0, -1);
 
@@ -140,8 +150,6 @@ export function parseAddressString(raw: string): ShippoAddress {
   const street = remaining.join(', ');
   if (!street) throw new Error(`Cannot parse address (no street): "${raw}"`);
 
-  // Split street into street1 + optional street2 if it has a unit indicator
-  // e.g. "Apt 2 123 Main St" or "123 Main St Apt 2" — keep as street1 for Shippo
   return { street1: street, city, state, zip, country };
 }
 

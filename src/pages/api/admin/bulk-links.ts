@@ -2,7 +2,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
-import { getCheapestRate, validateAddress, parseAddressString } from '../../../lib/shippo';
+import { getCheapestRate, parseAddressString } from '../../../lib/shippo';
 import { createCheckoutSession } from '../../../lib/stripe';
 import type { ShippoAddress, ShippoParcel } from '../../../lib/shippo';
 
@@ -70,7 +70,6 @@ export const POST: APIRoute = async ({ request }) => {
       'shipping_carrier',
       'shipping_service',
       'shipping_cost',
-      'address_warnings',
       'payment_link',
       'error',
     ];
@@ -78,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
     const outputRows: Record<string, string>[] = [];
 
     for (const row of rows) {
-      const out: Record<string, string> = { ...row, shipping_carrier: '', shipping_service: '', shipping_cost: '', address_warnings: '', payment_link: '', error: '' };
+      const out: Record<string, string> = { ...row, shipping_carrier: '', shipping_service: '', shipping_cost: '', payment_link: '', error: '' };
 
       try {
         // Build line items
@@ -110,11 +109,11 @@ export const POST: APIRoute = async ({ request }) => {
           phone: fromAddr.phone,
         };
 
-        // Ship-to address — parse from single field, then validate with Shippo
+        // Ship-to address — parse from single field
         const rawAddress = row['address'] ?? '';
         if (!rawAddress) throw new Error('Missing address');
         const parsed = parseAddressString(rawAddress);
-        const toRaw: ShippoAddress = {
+        const to: ShippoAddress = {
           name: row['name'] ?? '',
           street1: parsed.street1,
           street2: parsed.street2,
@@ -122,17 +121,6 @@ export const POST: APIRoute = async ({ request }) => {
           state: parsed.state,
           zip: parsed.zip,
           country: parsed.country,
-          email: row['email'] || undefined,
-        };
-
-        const validation = await validateAddress(toRaw);
-        if (validation.messages.length > 0) {
-          out.address_warnings = validation.messages.join('; ');
-        }
-        // Use the (potentially corrected) address Shippo returns
-        const to: ShippoAddress = {
-          ...validation.address,
-          name: row['name'] ?? '',
           email: row['email'] || undefined,
         };
 
