@@ -150,11 +150,6 @@ if (Astro.request.method === 'POST') {
       <form id="bulk-form" style="display:flex; flex-direction:column; gap:12px;">
         <input type="file" name="csv" accept=".csv"
                style="font-size:12px; color:#888; background:#141414; border:1px solid #2A2A2A; padding:9px 12px; width:100%; cursor:pointer;" />
-        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-          <input type="checkbox" name="send_emails"
-                 style="width:14px; height:14px; accent-color:#FF7136; cursor:pointer;" />
-          <span style="font-size:12px; color:#888;">Send payment link emails to customers</span>
-        </label>
         <div style="display:flex; gap:12px; align-items:center;">
           <button type="submit"
                   style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
@@ -162,6 +157,30 @@ if (Astro.request.method === 'POST') {
             Generate &amp; Download
           </button>
           <span id="bulk-status" style="font-size:12px; color:#555;"></span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Send emails section -->
+    <div style="padding-top:32px; border-top:1px solid #1E1E1E; display:flex; flex-direction:column; gap:20px;">
+      <div>
+        <h2 style="font-size:13px; font-weight:600; color:#F5F5F0; text-transform:uppercase; letter-spacing:0.12em;">Send Emails</h2>
+        <p style="font-size:11px; color:#555; margin-top:4px; line-height:1.6;">
+          Upload the output CSV from the step above to send payment link emails to all customers.
+          Rows without a <code style="font-size:10px; color:#888;">payment_link</code> are skipped.
+        </p>
+      </div>
+
+      <form id="email-form" style="display:flex; flex-direction:column; gap:12px;">
+        <input type="file" name="csv" accept=".csv"
+               style="font-size:12px; color:#888; background:#141414; border:1px solid #2A2A2A; padding:9px 12px; width:100%; cursor:pointer;" />
+        <div style="display:flex; gap:12px; align-items:center;">
+          <button type="submit"
+                  style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+                  onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            Send Emails
+          </button>
+          <span id="email-status" style="font-size:12px; color:#555;"></span>
         </div>
       </form>
     </div>
@@ -205,6 +224,32 @@ if (Astro.request.method === 'POST') {
       URL.revokeObjectURL(url);
       status.textContent = 'Done — check your downloads.';
       status.style.color = '#4CAF50';
+    } catch (err) {
+      status.textContent = (err && err.message) ? err.message : 'Error';
+      status.style.color = '#FF7136';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Send emails
+  document.getElementById('email-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const status = document.getElementById('email-status');
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    status.textContent = 'Sending…';
+    status.style.color = '#888';
+
+    try {
+      const data = new FormData(form);
+      const res = await fetch('/api/admin/send-emails', { method: 'POST', body: data });
+      if (!res.ok) throw new Error(await res.text());
+      const result = await res.json();
+      const failMsg = result.failed.length > 0 ? ` (${result.failed.length} failed)` : '';
+      status.textContent = `Sent ${result.sent} email${result.sent !== 1 ? 's' : ''}${failMsg}`;
+      status.style.color = result.failed.length > 0 ? '#FF7136' : '#4CAF50';
     } catch (err) {
       status.textContent = (err && err.message) ? err.message : 'Error';
       status.style.color = '#FF7136';

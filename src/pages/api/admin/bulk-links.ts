@@ -4,9 +4,6 @@ import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
 import { getCheapestRate, parseAddressString } from '../../../lib/shippo';
 import { createCheckoutSession } from '../../../lib/stripe';
-import { sendPaymentLinkEmail } from '../../../lib/resend';
-import type { OrderLineItem } from '../../../lib/resend';
-import { appendEmailLog } from '../../../lib/email-log';
 import type { ShippoAddress, ShippoParcel } from '../../../lib/shippo';
 
 // Minimal CSV parser — handles quoted fields
@@ -55,7 +52,6 @@ export const POST: APIRoute = async ({ request }) => {
     const form = await request.formData();
     const file = form.get('csv') as File | null;
     if (!file) return new Response('No file', { status: 400 });
-    const sendEmails = form.get('send_emails') === 'on';
 
     const text = await file.text();
     const rows = parseCSV(text);
@@ -75,14 +71,13 @@ export const POST: APIRoute = async ({ request }) => {
       'shipping_service',
       'shipping_cost',
       'payment_link',
-      'email_sent',
       'error',
     ];
 
     const outputRows: Record<string, string>[] = [];
 
     for (const row of rows) {
-      const out: Record<string, string> = { ...row, shipping_carrier: '', shipping_service: '', shipping_cost: '', payment_link: '', email_sent: '', error: '' };
+      const out: Record<string, string> = { ...row, shipping_carrier: '', shipping_service: '', shipping_cost: '', payment_link: '', error: '' };
 
       try {
         // Build line items
@@ -158,46 +153,6 @@ export const POST: APIRoute = async ({ request }) => {
         out.shipping_cost = shippingCost.toFixed(2);
         out.payment_link = url;
 
-        // Send email if requested
-        if (sendEmails) {
-          const emailLineItems: OrderLineItem[] = productCols
-            .filter((col) => parseInt(row[col] ?? '0', 10) > 0)
-            .map((col) => {
-              const qty = parseInt(row[col], 10);
-              const product = productMap.get(col);
-              return {
-                name: product?.name ?? col,
-                quantity: qty,
-                unitPrice: product?.price ?? 0,
-              };
-            });
-
-          const itemSummary = emailLineItems
-            .map((li) => li.quantity > 1 ? `${li.quantity}× ${li.name}` : li.name)
-            .join(', ');
-          const totalAmount = emailLineItems.reduce((s, li) => s + li.unitPrice * li.quantity, 0) + shippingCost;
-
-          await sendPaymentLinkEmail({
-            to: email,
-            name: row['name'] || undefined,
-            paymentLink: url,
-            lineItems: emailLineItems,
-            shippingCost: shippingCost.toFixed(2),
-            shippingService: `${rate.provider} ${rate.servicelevel.name}`,
-            deliveryAddress: row['address'] ?? '',
-          });
-
-          await appendEmailLog({
-            to: email,
-            name: row['name'] ?? '',
-            items: itemSummary,
-            total: `$${totalAmount.toFixed(2)}`,
-            address: row['address'] ?? '',
-            shippingService: `${rate.provider} ${rate.servicelevel.name}`,
-          });
-
-          out.email_sent = 'yes';
-        }
       } catch (e: any) {
         out.error = e.message ?? 'Unknown error';
       }
