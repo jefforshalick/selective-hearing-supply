@@ -1,7 +1,7 @@
 ---
 interface Props {
   title: string;
-  activeNav?: 'products' | 'links' | 'settings';
+  activeNav?: 'products' | 'links' | 'emails' | 'settings';
 }
 const { title, activeNav } = Astro.props;
 ---
@@ -53,6 +53,13 @@ const { title, activeNav } = Astro.props;
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
           Payment Links
+        </a>
+        <a href="/admin/emails"
+           style={`display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:4px; text-decoration:none; font-size:13px; font-weight:500; letter-spacing:0.01em; transition:background 0.15s; ${activeNav === 'emails' ? 'background:#1E1E1E; color:#F5F5F0;' : 'color:#888;'}`}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Sent Emails
         </a>
         <a href="/admin/settings"
            style={`display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:4px; text-decoration:none; font-size:13px; font-weight:500; letter-spacing:0.01em; transition:background 0.15s; ${activeNav === 'settings' ? 'background:#1E1E1E; color:#F5F5F0;' : 'color:#888;'}`}>

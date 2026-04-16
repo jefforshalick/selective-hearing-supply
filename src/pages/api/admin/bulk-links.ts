@@ -6,6 +6,7 @@ import { getCheapestRate, parseAddressString } from '../../../lib/shippo';
 import { createCheckoutSession } from '../../../lib/stripe';
 import { sendPaymentLinkEmail } from '../../../lib/resend';
 import type { OrderLineItem } from '../../../lib/resend';
+import { appendEmailLog } from '../../../lib/email-log';
 import type { ShippoAddress, ShippoParcel } from '../../../lib/shippo';
 
 // Minimal CSV parser — handles quoted fields
@@ -171,6 +172,11 @@ export const POST: APIRoute = async ({ request }) => {
               };
             });
 
+          const itemSummary = emailLineItems
+            .map((li) => li.quantity > 1 ? `${li.quantity}× ${li.name}` : li.name)
+            .join(', ');
+          const totalAmount = emailLineItems.reduce((s, li) => s + li.unitPrice * li.quantity, 0) + shippingCost;
+
           await sendPaymentLinkEmail({
             to: email,
             name: row['name'] || undefined,
@@ -180,6 +186,16 @@ export const POST: APIRoute = async ({ request }) => {
             shippingService: `${rate.provider} ${rate.servicelevel.name}`,
             deliveryAddress: row['address'] ?? '',
           });
+
+          await appendEmailLog({
+            to: email,
+            name: row['name'] ?? '',
+            items: itemSummary,
+            total: `$${totalAmount.toFixed(2)}`,
+            address: row['address'] ?? '',
+            shippingService: `${rate.provider} ${rate.servicelevel.name}`,
+          });
+
           out.email_sent = 'yes';
         }
       } catch (e: any) {

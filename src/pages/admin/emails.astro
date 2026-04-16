@@ -1,0 +1,61 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getEmailLog } from '../../lib/email-log';
+
+const log = await getEmailLog();
+---
+
+<AdminLayout title="Sent Emails" activeNav="emails">
+  <div style="max-width:900px;">
+
+    {log.length === 0 ? (
+      <p style="font-size:13px; color:#555;">No emails sent yet. Send your first batch from the <a href="/admin/links" style="color:#FF7136; text-decoration:none;">Payment Links</a> page.</p>
+    ) : (
+      <div style="display:flex; flex-direction:column; gap:0;">
+
+        <!-- Column headers -->
+        <div style="display:grid; grid-template-columns:160px 1fr 1fr 140px 120px; gap:16px; padding:0 0 10px; border-bottom:1px solid #1E1E1E;">
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555;">Sent</span>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555;">Recipient</span>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555;">Items</span>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555;">Address</span>
+          <span style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; text-align:right;">Total</span>
+        </div>
+
+        {log.map((entry) => (
+          <div style="display:grid; grid-template-columns:160px 1fr 1fr 140px 120px; gap:16px; align-items:start; padding:14px 0; border-bottom:1px solid #1A1A1A;">
+
+            <!-- Date -->
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="font-size:12px; color:#F5F5F0;">
+                {new Date(entry.sentAt).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}
+              </span>
+              <span style="font-size:11px; color:#555;">
+                {new Date(entry.sentAt).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })}
+              </span>
+            </div>
+
+            <!-- Recipient -->
+            <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+              <span style="font-size:13px; color:#F5F5F0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{entry.name || '—'}</span>
+              <span style="font-size:11px; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{entry.to}</span>
+            </div>
+
+            <!-- Items -->
+            <span style="font-size:12px; color:#888; line-height:1.5;">{entry.items}</span>
+
+            <!-- Address -->
+            <span style="font-size:11px; color:#555; line-height:1.5;">{entry.address}</span>
+
+            <!-- Total -->
+            <span style="font-size:14px; font-weight:500; color:#F5F5F0; text-align:right;">{entry.total}</span>
+
+          </div>
+        ))}
+
+      </div>
+    )}
+
+  </div>
+</AdminLayout>
