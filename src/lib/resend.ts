@@ -106,12 +106,12 @@ export async function sendPaymentLinkEmail({
                 </tr>`).join('')}
 
                 <!-- Shipping -->
-                <tr style="background:#F5F5F0;">
+                <tr>
                   <td style="padding:12px 16px; border-bottom:1px solid #D8D5CF;">
                     <span style="font-size:13px; color:#666;">Shipping</span>
                     <span style="font-size:11px; color:#999; margin-left:4px;">(${shippingService})</span>
                   </td>
-                  <td align="right" style="padding:12px 16px; border-bottom:1px solid #D8D5CF; white-space:nowrap;">
+                  <td align="right" style="padding:12px 16px; border-bottom:1px solid #D8D5CF; white-space:nowrap; background:#fff;">
                     <span style="font-size:13px; color:#666;">${fmt(shippingCostNum)}</span>
                   </td>
                 </tr>
