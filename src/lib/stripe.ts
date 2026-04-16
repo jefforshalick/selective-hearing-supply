@@ -102,13 +102,10 @@ export async function createCheckoutSession(
     });
   }
 
-  const expiresAt = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days
-
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: customerEmail,
     line_items: lineItems,
-    expires_at: expiresAt,
     custom_fields: [
       {
         key: 'shipping_name',
