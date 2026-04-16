@@ -2,40 +2,13 @@
 export const prerender = false;
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getProducts } from '../../lib/products';
-import { createPaymentLink } from '../../lib/stripe';
 import { getSettings } from '../../lib/settings';
 
 const products = await getProducts();
 const pricedProducts = products.filter((p) => p.stripe_price_id);
 const settings = await getSettings();
 const hasShipFrom = settings.shipFromAddresses.length > 0;
-
-let paymentLink = '';
-let error = '';
-
-if (Astro.request.method === 'POST') {
-  try {
-    const form = await Astro.request.formData();
-    const items: { stripePriceId: string; quantity: number }[] = [];
-
-    for (const product of pricedProducts) {
-      const qty = parseInt(form.get(`qty_${product.id}`)?.toString() ?? '0', 10);
-      if (qty > 0 && product.stripe_price_id) {
-        items.push({ stripePriceId: product.stripe_price_id, quantity: qty });
-      }
-    }
-
-    const shipping = parseFloat(form.get('shipping')?.toString() ?? '0') || 0;
-
-    if (items.length === 0) {
-      error = 'Add at least one item before generating a link.';
-    } else {
-      paymentLink = await createPaymentLink(items, shipping);
-    }
-  } catch (e: any) {
-    error = e.message ?? 'Failed to generate payment link.';
-  }
-}
+const shipFromAddresses = settings.shipFromAddresses;
 ---
 
 <AdminLayout title="Payment Links" activeNav="links">
@@ -46,7 +19,7 @@ if (Astro.request.method === 'POST') {
         No products with Stripe prices yet. Save a product with a price to enable link generation.
       </p>
     ) : (
-      <form method="POST" style="display:flex; flex-direction:column; gap:0;">
+      <form id="manual-form" style="display:flex; flex-direction:column; gap:0;">
 
         {/* Column headers */}
         <div style="display:grid; grid-template-columns:1fr 120px 80px; gap:16px; padding:0 0 10px; border-bottom:1px solid #1E1E1E;">
@@ -67,55 +40,132 @@ if (Astro.request.method === 'POST') {
             <span style="font-size:14px; color:#888;">
               {product.price !== null ? `$${product.price}` : '—'}
             </span>
-            <input
-              type="number"
-              name={`qty_${product.id}`}
-              min="0"
-              value="0"
-              style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:8px 10px; outline:none; width:100%; text-align:right;"
-              onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'"
-            />
+            <input type="number" name={`qty_${product.id}`} min="0" value="0"
+                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:8px 10px; outline:none; width:100%; text-align:right;"
+                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
           </div>
         ))}
 
-        {/* Actions */}
+        {/* Shipping mode toggle */}
         <div style="padding-top:24px; display:flex; flex-direction:column; gap:16px;">
-          {error && <p style="font-size:12px; color:#FF7136;">{error}</p>}
 
-          <div style="display:flex; align-items:center; gap:12px;">
-            <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap;">Shipping ($)</label>
-            <input type="number" name="shipping" min="0" step="0.01" placeholder="0.00" value="0"
-                   style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:10px 12px; outline:none; width:120px;"
-                   onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+          <div style="display:flex; gap:0; border:1px solid #2A2A2A; width:fit-content;">
+            <label id="tab-flat" style="padding:9px 20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.14em; cursor:pointer; background:#FF7136; color:#0D0D0D; transition:all 0.15s;">
+              <input type="radio" name="shipping_mode" value="flat" checked style="display:none;" />
+              Flat Rate
+            </label>
+            <label id="tab-dynamic" style="padding:9px 20px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.14em; cursor:pointer; background:none; color:#555; transition:all 0.15s;">
+              <input type="radio" name="shipping_mode" value="dynamic" style="display:none;" />
+              Calculate (Shippo)
+            </label>
           </div>
 
-          <div style="display:flex; align-items:center; gap:12px;">
-            <button type="submit"
-                    style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+          {/* Flat fields */}
+          <div id="fields-flat" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Shipping ($)</label>
+              <input type="number" name="shipping" min="0" step="0.01" placeholder="0.00" value="0"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:14px; padding:10px 12px; outline:none; width:120px;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+            </div>
+          </div>
+
+          {/* Dynamic fields */}
+          <div id="fields-dynamic" style="display:none; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Address</label>
+              <input type="text" name="address" placeholder="123 Main St, Austin, TX 78701, US"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Ship From</label>
+              <select name="from"
+                      style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1; cursor:pointer;"
+                      onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'">
+                {shipFromAddresses.map((a) => (
+                  <option value={a.name}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Box (in)</label>
+              <input type="number" name="box_l" placeholder="L" min="0" step="0.1"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; width:72px; text-align:center;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+              <span style="color:#555; font-size:12px;">×</span>
+              <input type="number" name="box_w" placeholder="W" min="0" step="0.1"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; width:72px; text-align:center;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+              <span style="color:#555; font-size:12px;">×</span>
+              <input type="number" name="box_h" placeholder="H" min="0" step="0.1"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; width:72px; text-align:center;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Weight</label>
+              <input type="number" name="weight" placeholder="0" min="0" step="0.1"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; width:100px;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+              <select name="weight_unit"
+                      style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; cursor:pointer;"
+                      onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'">
+                <option value="lb">lb</option>
+                <option value="oz">oz</option>
+                <option value="kg">kg</option>
+                <option value="g">g</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Customer info */}
+          <div style="display:flex; flex-direction:column; gap:12px; padding-top:8px; border-top:1px solid #1A1A1A;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Email</label>
+              <input type="email" name="email" placeholder="customer@example.com"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Name</label>
+              <input type="text" name="name" placeholder="Optional"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+            </div>
+          </div>
+
+          {/* Buttons */}
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button type="button" id="btn-generate"
+                    style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 24px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
                     onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
               Generate Link
             </button>
+            <button type="button" id="btn-generate-send"
+                    style="background:none; border:1px solid #FF7136; color:#FF7136; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:12px 24px; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+                    onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+              Generate + Send Email
+            </button>
             <button type="reset"
-                    style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 20px; color:#888; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
-                    onmouseover="this.style.color='#F5F5F0';this.style.borderColor='#555'" onmouseout="this.style.color='#888';this.style.borderColor='#2A2A2A'">
+                    style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 16px; color:#555; background:none; border:1px solid #2A2A2A; cursor:pointer; transition:all 0.15s;"
+                    onmouseover="this.style.color='#888';this.style.borderColor='#555'" onmouseout="this.style.color='#555';this.style.borderColor='#2A2A2A'">
               Clear
             </button>
           </div>
 
-          {paymentLink && (
-            <div style="display:flex; align-items:center; gap:8px; padding:16px; background:#141414; border:1px solid #2A2A2A;">
-              <input type="text" readonly value={paymentLink}
-                     style="background:none; border:none; color:#4CAF50; font-size:12px; outline:none; flex:1; min-width:0;"
-                     onclick="this.select()" />
-              <button type="button"
-                      onclick={`navigator.clipboard.writeText('${paymentLink}');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)`}
-                      style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; padding:9px 16px; color:#0D0D0D; background:#FF7136; border:none; cursor:pointer; flex-shrink:0;">
-                Copy
-              </button>
-            </div>
-          )}
-        </div>
+          <p id="manual-status" style="font-size:12px; color:#555; min-height:16px;"></p>
 
+          <div id="manual-result" style="display:none; align-items:center; gap:8px; padding:16px; background:#141414; border:1px solid #2A2A2A;">
+            <input type="text" id="manual-link" readonly
+                   style="background:none; border:none; color:#4CAF50; font-size:12px; outline:none; flex:1; min-width:0;"
+                   onclick="this.select()" />
+            <button type="button" id="btn-copy"
+                    style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; padding:9px 16px; color:#0D0D0D; background:#FF7136; border:none; cursor:pointer; flex-shrink:0;">
+              Copy
+            </button>
+          </div>
+
+        </div>
       </form>
     )}
 
@@ -189,6 +239,100 @@ if (Astro.request.method === 'POST') {
 </AdminLayout>
 
 <script define:vars={{ productIds: pricedProducts.map(p => p.id), productNames: pricedProducts.map(p => p.name) }}>
+  // --- Shipping mode toggle ---
+  var tabFlat = document.getElementById('tab-flat');
+  var tabDynamic = document.getElementById('tab-dynamic');
+  var fieldsFlat = document.getElementById('fields-flat');
+  var fieldsDynamic = document.getElementById('fields-dynamic');
+
+  function setMode(mode) {
+    if (mode === 'flat') {
+      tabFlat.style.background = '#FF7136';
+      tabFlat.style.color = '#0D0D0D';
+      tabDynamic.style.background = 'none';
+      tabDynamic.style.color = '#555';
+      fieldsFlat.style.display = 'flex';
+      fieldsDynamic.style.display = 'none';
+    } else {
+      tabDynamic.style.background = '#FF7136';
+      tabDynamic.style.color = '#0D0D0D';
+      tabFlat.style.background = 'none';
+      tabFlat.style.color = '#555';
+      fieldsFlat.style.display = 'none';
+      fieldsDynamic.style.display = 'flex';
+    }
+  }
+
+  tabFlat.addEventListener('click', function() { setMode('flat'); });
+  tabDynamic.addEventListener('click', function() { setMode('dynamic'); });
+
+  // --- Manual form submit helper ---
+  function buildManualFormData(sendEmail) {
+    var form = document.getElementById('manual-form');
+    var fd = new FormData(form);
+    fd.set('send_email', sendEmail ? 'yes' : 'no');
+    return fd;
+  }
+
+  function setManualStatus(msg, color) {
+    var el = document.getElementById('manual-status');
+    el.textContent = msg;
+    el.style.color = color || '#888';
+  }
+
+  function showManualResult(url) {
+    var result = document.getElementById('manual-result');
+    var link = document.getElementById('manual-link');
+    link.value = url;
+    result.style.display = 'flex';
+  }
+
+  function hideManualResult() {
+    document.getElementById('manual-result').style.display = 'none';
+    document.getElementById('manual-link').value = '';
+  }
+
+  async function submitManual(sendEmail) {
+    var btnGen = document.getElementById('btn-generate');
+    var btnSend = document.getElementById('btn-generate-send');
+    btnGen.disabled = true;
+    btnSend.disabled = true;
+    hideManualResult();
+    setManualStatus(sendEmail ? 'Generating link and sending email…' : 'Generating link…', '#888');
+
+    try {
+      var fd = buildManualFormData(sendEmail);
+      var res = await fetch('/api/admin/generate-link', { method: 'POST', body: fd });
+      var json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Unknown error');
+
+      showManualResult(json.url);
+
+      var parts = [];
+      if (json.shippingCost) parts.push('Shipping: ' + json.shippingCost + (json.shippingService ? ' (' + json.shippingService + ')' : ''));
+      if (sendEmail) parts.push('Email sent ✓');
+      setManualStatus(parts.join(' · '), '#4CAF50');
+    } catch (err) {
+      setManualStatus((err && err.message) ? err.message : 'Error', '#FF7136');
+    } finally {
+      btnGen.disabled = false;
+      btnSend.disabled = false;
+    }
+  }
+
+  document.getElementById('btn-generate').addEventListener('click', function() { submitManual(false); });
+  document.getElementById('btn-generate-send').addEventListener('click', function() { submitManual(true); });
+
+  // --- Copy button ---
+  document.getElementById('btn-copy').addEventListener('click', function() {
+    var link = document.getElementById('manual-link');
+    navigator.clipboard.writeText(link.value).then(function() {
+      var btn = document.getElementById('btn-copy');
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+    });
+  });
+
   // Template download
   document.getElementById('dl-template')?.addEventListener('click', () => {
     const fixed = ['name','email','address','from','box_l','box_w','box_h','weight','weight_unit'];
