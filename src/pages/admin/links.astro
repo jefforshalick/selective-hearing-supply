@@ -124,8 +124,10 @@ if (Astro.request.method === 'POST') {
       <div>
         <h2 style="font-size:13px; font-weight:600; color:#F5F5F0; text-transform:uppercase; letter-spacing:0.12em;">Bulk from CSV</h2>
         <p style="font-size:11px; color:#555; margin-top:4px; line-height:1.6;">
-          Upload a CSV with one row per customer. Shipping is calculated automatically via Shippo.
-          The file is returned with <code style="font-size:10px; color:#888;">shipping_cost</code> and <code style="font-size:10px; color:#888;">payment_link</code> columns added.
+          Upload a CSV with one row per customer. Use a single <code style="font-size:10px; color:#888;">address</code> field
+          (e.g. <em style="color:#666;">123 Main St, Austin, TX 78701, US</em>). Shipping is calculated automatically via Shippo.
+          The file is returned with <code style="font-size:10px; color:#888;">shipping_cost</code>, <code style="font-size:10px; color:#888;">address_warnings</code>,
+          and <code style="font-size:10px; color:#888;">payment_link</code> columns added.
         </p>
       </div>
 
@@ -166,9 +168,9 @@ if (Astro.request.method === 'POST') {
 <script define:vars={{ productIds: pricedProducts.map(p => p.id), productNames: pricedProducts.map(p => p.name) }}>
   // Template download
   document.getElementById('dl-template')?.addEventListener('click', () => {
-    const fixed = ['name','email','street1','street2','city','state','zip','country','from','box_l','box_w','box_h','weight','weight_unit'];
+    const fixed = ['name','email','address','from','box_l','box_w','box_h','weight','weight_unit'];
     const headers = [...fixed, ...productIds];
-    const example = ['Jane Smith','jane@example.com','123 Main St','','Austin','TX','78701','US','Home','10','10','5','32','oz', ...productIds.map(() => '0')];
+    const example = ['Jane Smith','jane@example.com','"123 Main St, Austin, TX 78701, US"','Home','10','10','5','32','oz', ...productIds.map(() => '0')];
     const csv = [headers.join(','), example.join(',')].join('\n');
     const a = document.createElement('a');
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
