@@ -13,6 +13,7 @@ export async function sendPaymentLinkEmail({
   items,
   shippingCost,
   shippingService,
+  deliveryAddress,
 }: {
   to: string;
   name?: string;
@@ -20,6 +21,7 @@ export async function sendPaymentLinkEmail({
   items: string;
   shippingCost: string;
   shippingService: string;
+  deliveryAddress: string;
 }): Promise<void> {
   const key = getResendKey();
   const displayName = name || 'there';
@@ -74,14 +76,21 @@ export async function sendPaymentLinkEmail({
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:16px 20px;">
+                  <td style="padding:16px 20px; border-bottom:1px solid #1E1E1E;">
                     <p style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Shipping</p>
                     <p style="margin:4px 0 0; font-size:14px; color:#F5F5F0;">$${shippingCost} <span style="color:#555; font-size:12px;">(${shippingService})</span></p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0; font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:#555;">Delivering to</p>
+                    <p style="margin:4px 0 0; font-size:14px; color:#F5F5F0;">${deliveryAddress}</p>
                   </td>
                 </tr>
               </table>
 
               <p style="margin:0 0 24px; font-size:15px; color:#888; line-height:1.6;">Click the button below to complete your payment. The link is unique to your order.</p>
+              <p style="margin:-16px 0 24px; font-size:13px; color:#555; line-height:1.6;">Need to update your delivery address? Reply to this email before paying and we'll sort it out.</p>
 
               <!-- CTA -->
               <table cellpadding="0" cellspacing="0">

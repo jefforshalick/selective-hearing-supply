@@ -174,6 +174,7 @@ export const POST: APIRoute = async ({ request }) => {
             items: itemSummary,
             shippingCost: shippingCost.toFixed(2),
             shippingService: `${rate.provider} ${rate.servicelevel.name}`,
+            deliveryAddress: row['address'] ?? '',
           });
           out.email_sent = 'yes';
         }
