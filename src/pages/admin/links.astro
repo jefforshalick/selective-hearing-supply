@@ -180,8 +180,8 @@ if (Astro.request.method === 'POST') {
   document.getElementById('bulk-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
-    const status = document.getElementById('bulk-status')!;
-    const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const status = document.getElementById('bulk-status');
+    const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
     status.textContent = 'Processing…';
     status.style.color = '#888';
@@ -199,8 +199,8 @@ if (Astro.request.method === 'POST') {
       URL.revokeObjectURL(url);
       status.textContent = 'Done — check your downloads.';
       status.style.color = '#4CAF50';
-    } catch (err: any) {
-      status.textContent = err.message ?? 'Error';
+    } catch (err) {
+      status.textContent = (err && err.message) ? err.message : 'Error';
       status.style.color = '#FF7136';
     } finally {
       btn.disabled = false;
