@@ -247,9 +247,15 @@ if (Astro.request.method === 'POST') {
       const res = await fetch('/api/admin/send-emails', { method: 'POST', body: data });
       if (!res.ok) throw new Error(await res.text());
       const result = await res.json();
-      const failMsg = result.failed.length > 0 ? ` (${result.failed.length} failed)` : '';
-      status.textContent = `Sent ${result.sent} email${result.sent !== 1 ? 's' : ''}${failMsg}`;
-      status.style.color = result.failed.length > 0 ? '#FF7136' : '#4CAF50';
+      if (result.failed.length > 0) {
+        const failDetails = result.failed.map((f) => `${f.email}: ${f.error}`).join('\n');
+        status.textContent = `Sent ${result.sent}, failed ${result.failed.length}:\n${failDetails}`;
+        status.style.whiteSpace = 'pre';
+        status.style.color = '#FF7136';
+      } else {
+        status.textContent = `Sent ${result.sent} email${result.sent !== 1 ? 's' : ''} ✓`;
+        status.style.color = '#4CAF50';
+      }
     } catch (err) {
       status.textContent = (err && err.message) ? err.message : 'Error';
       status.style.color = '#FF7136';
