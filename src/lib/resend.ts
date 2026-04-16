@@ -142,8 +142,8 @@ export async function sendPaymentLinkEmail({
                 </tr>
               </table>
 
-              <p style="margin:0 0 6px; font-size:14px; color:#666; line-height:1.6;">Click the button below to complete your payment. The link is unique to your order.</p>
-              <p style="margin:0 0 24px; font-size:13px; color:#999; line-height:1.6;">Need to update your delivery address? Reply to this email before paying and we'll sort it out.</p>
+              <p style="margin:0 0 6px; font-size:14px; color:#666; line-height:1.6;">Click the button below to complete your payment. The link is unique to your order and <strong style="color:#0D0D0D;">expires in 24 hours</strong>.</p>
+              <p style="margin:0 0 24px; font-size:13px; color:#999; line-height:1.6;">Can't pay in time or need to update your delivery address? Reply to this email and we'll send a new link.</p>
 
               <!-- CTA -->
               <table cellpadding="0" cellspacing="0">
