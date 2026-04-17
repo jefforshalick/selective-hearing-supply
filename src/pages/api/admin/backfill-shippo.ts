@@ -2,7 +2,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
-import { createShippoOrder, listShippoOrderNumbers, parseAddressString } from '../../../lib/shippo';
+import { createShippoOrder, updateShippoOrder, listShippoOrders, parseAddressString } from '../../../lib/shippo';
 import { getEmailLog } from '../../../lib/email-log';
 import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
       getEmailLog(),
       getProducts(),
       getSettings(),
-      listShippoOrderNumbers(),
+      listShippoOrders(),
     ]);
 
     // Build from address branded as Selective Hearing Supply
@@ -75,6 +75,7 @@ export const POST: APIRoute = async ({ request }) => {
     } as any);
 
     let created = 0;
+    let updated = 0;
     let skipped = 0;
     const errors: { session: string; error: string }[] = [];
 
@@ -83,10 +84,7 @@ export const POST: APIRoute = async ({ request }) => {
       // (5 fixed subrequests: email log, products, settings, Stripe list, Shippo list)
       if (created >= 43) break;
 
-      // Skip if this session already exists in Shippo
-      if (existingShippoOrders.has(session.id)) { skipped++; continue; }
-
-      // Skip if already has address metadata (webhook already handled it)
+      // Skip sessions that have delivery_address metadata — webhook handles those
       if (session.metadata?.delivery_address) { skipped++; continue; }
 
       const email = (session.customer_email ?? '').toLowerCase();
@@ -151,24 +149,29 @@ export const POST: APIRoute = async ({ request }) => {
         const firstProductTitle = productItems[0]?.description ?? '';
         const notes = dimsByName.get(firstProductTitle.toLowerCase());
 
-        await createShippoOrder({
-          stripeSessionId: session.id,
-          placedAt: new Date(session.created * 1000).toISOString(),
-          fromAddress,
-          toAddress,
-          lineItems,
-          shippingCost,
-          shippingService: best.shippingService !== 'Flat rate' ? best.shippingService : undefined,
-          notes,
-        });
-
-        created++;
+        const existingObjectId = existingShippoOrders.get(session.id);
+        if (existingObjectId) {
+          await updateShippoOrder(existingObjectId, { fromAddress, toAddress, notes });
+          updated++;
+        } else {
+          await createShippoOrder({
+            stripeSessionId: session.id,
+            placedAt: new Date(session.created * 1000).toISOString(),
+            fromAddress,
+            toAddress,
+            lineItems,
+            shippingCost,
+            shippingService: best.shippingService !== 'Flat rate' ? best.shippingService : undefined,
+            notes,
+          });
+          created++;
+        }
       } catch (err: any) {
         errors.push({ session: session.id, error: err.message ?? 'Unknown error' });
       }
     }
 
-    return new Response(JSON.stringify({ created, skipped, errors }), {
+    return new Response(JSON.stringify({ created, updated, skipped, errors }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -265,7 +265,8 @@ function getShippoKey(): string {
   return key;
 }
 
-export async function listShippoOrderNumbers(): Promise<Set<string>> {
+// Returns Map<order_number, object_id> for all existing Shippo orders
+export async function listShippoOrders(): Promise<Map<string, string>> {
   const key = getShippoKey();
   const res = await fetch('https://api.goshippo.com/orders/?results=250', {
     headers: { Authorization: `ShippoToken ${key}` },
@@ -274,8 +275,36 @@ export async function listShippoOrderNumbers(): Promise<Set<string>> {
     const text = await res.text();
     throw new Error(`Shippo list orders error ${res.status}: ${text}`);
   }
-  const data = (await res.json()) as { results: Array<{ order_number: string }> };
-  return new Set((data.results ?? []).map((o) => o.order_number));
+  const data = (await res.json()) as { results: Array<{ order_number: string; object_id: string }> };
+  return new Map((data.results ?? []).map((o) => [o.order_number, o.object_id]));
+}
+
+export async function updateShippoOrder(
+  objectId: string,
+  updates: {
+    fromAddress?: ShippoAddress;
+    toAddress?: ShippoAddress;
+    notes?: string;
+  }
+): Promise<void> {
+  const key = getShippoKey();
+  const body: Record<string, unknown> = { order_status: 'PAID' };
+  if (updates.fromAddress) body.from_address = updates.fromAddress;
+  if (updates.toAddress) body.to_address = updates.toAddress;
+  if (updates.notes) body.notes = updates.notes;
+
+  const res = await fetch(`https://api.goshippo.com/orders/${objectId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `ShippoToken ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Shippo update order error ${res.status}: ${text}`);
+  }
 }
 
 export async function createShippoOrder({
