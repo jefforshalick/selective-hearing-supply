@@ -321,10 +321,13 @@ export async function createShippoOrder({
   };
 
   if (shippingService) body.shipping_method = shippingService;
-  if (totalWeightOz !== null) {
-    body.total_weight = totalWeightOz.toFixed(2);
-    body.weight_unit = 'oz';
-  }
+  // Order-level weight is required by Shippo. Use sum of item weights when available,
+  // otherwise fall back to 1 oz per item quantity as a placeholder.
+  const weightOz = totalWeightOz !== null
+    ? totalWeightOz
+    : lineItems.reduce((sum, i) => sum + (i.quantity), 0); // 1 oz per item
+  body.weight = weightOz.toFixed(2);
+  body.weight_unit = 'oz';
 
   const res = await fetch('https://api.goshippo.com/orders/', {
     method: 'POST',
