@@ -2,11 +2,11 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
-import { createShippoOrder, listShippoOrders, parseAddressString } from '../../../lib/shippo';
+import { createShippoOrder, listShippoOrders, parseAddressString, shippoOrderNumber } from '../../../lib/shippo';
 import { getEmailLog } from '../../../lib/email-log';
 import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
-import type { ShippoAddress, ShippoLineItem, ShippoParcelDims } from '../../../lib/shippo';
+import type { ShippoAddress, ShippoLineItem } from '../../../lib/shippo';
 
 function getStripe(): Stripe {
   const key = (env as any)?.STRIPE_SECRET_KEY;
@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
         .filter((p) => p.weight != null)
         .map((p) => [p.name.toLowerCase(), { weight: String(p.weight), weight_unit: p.weight_unit ?? 'oz' }])
     );
-    // Map product name (lowercase) → dimension notes string + parcel dims
+    // Map product name (lowercase) → dimension notes string
     const dimsByName = new Map(
       products
         .filter((p) => (p as any).dim_l != null)
@@ -56,19 +56,6 @@ export const POST: APIRoute = async ({ request }) => {
           const wt = pp.weight != null ? `${pp.weight} ${pp.weight_unit ?? 'oz'}` : undefined;
           const notes = wt ? `Box: ${dims} | Weight: ${wt}` : `Box: ${dims}`;
           return [p.name.toLowerCase(), notes];
-        })
-    );
-    const parcelDimsByName = new Map(
-      products
-        .filter((p) => (p as any).dim_l != null)
-        .map((p) => {
-          const pp = p as any;
-          return [p.name.toLowerCase(), {
-            length: parseFloat(pp.dim_l),
-            width: parseFloat(pp.dim_w),
-            height: parseFloat(pp.dim_h),
-            distance_unit: (pp.dim_unit ?? 'in') as 'in' | 'cm',
-          }];
         })
     );
     // Build map: email -> sorted log entries (newest first)
@@ -160,9 +147,8 @@ export const POST: APIRoute = async ({ request }) => {
         // Build notes + parcel dims from first product's dimensions
         const firstProductTitle = productItems[0]?.description ?? '';
         const notes = dimsByName.get(firstProductTitle.toLowerCase());
-        const parcelDims = parcelDimsByName.get(firstProductTitle.toLowerCase());
 
-        if (existingShippoOrders.has(session.id)) { skipped++; continue; }
+        if (existingShippoOrders.has(shippoOrderNumber(session.id))) { skipped++; continue; }
 
         await createShippoOrder({
           stripeSessionId: session.id,
@@ -173,7 +159,6 @@ export const POST: APIRoute = async ({ request }) => {
           shippingCost,
           shippingService: best.shippingService !== 'Flat rate' ? best.shippingService : undefined,
           notes,
-          parcelDims,
         });
         created++;
       } catch (err: any) {
