@@ -408,8 +408,11 @@ const shipFromAddresses = settings.shipFromAddresses;
       if (!res.ok) throw new Error(json.error || 'Unknown error');
       var msg = 'Created ' + json.created + ' order' + (json.created !== 1 ? 's' : '');
       if (json.skipped > 0) msg += ', skipped ' + json.skipped;
-      if (json.errors && json.errors.length > 0) msg += ', ' + json.errors.length + ' error(s)';
+      if (json.errors && json.errors.length > 0) {
+        msg += '\n' + json.errors.map(function(e) { return e.session + ': ' + e.error; }).join('\n');
+      }
       status.textContent = msg;
+      status.style.whiteSpace = 'pre';
       status.style.color = json.errors && json.errors.length > 0 ? '#FF7136' : '#4CAF50';
     } catch (err) {
       status.textContent = (err && err.message) ? err.message : 'Error';
