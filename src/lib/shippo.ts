@@ -1,5 +1,4 @@
 import { env } from 'cloudflare:workers';
-import type Stripe from 'stripe';
 
 export interface ShippoAddress {
   name?: string;
@@ -12,6 +11,14 @@ export interface ShippoAddress {
   country: string;
   phone?: string;
   email?: string;
+}
+
+export interface ShippoLineItem {
+  title: string;
+  quantity: number;
+  total_price: string; // e.g. "129.00"
+  currency: string;    // "USD"
+  sku?: string;
 }
 
 export interface ShippoParcel {
@@ -256,56 +263,45 @@ function getShippoKey(): string {
   return key;
 }
 
-export async function createShippoOrder(
-  session: Stripe.Checkout.Session & { line_items?: Stripe.ApiList<Stripe.LineItem> }
-): Promise<string> {
+export async function createShippoOrder({
+  stripeSessionId,
+  placedAt,
+  toAddress,
+  lineItems,
+  shippingCost,
+  shippingService,
+}: {
+  stripeSessionId: string;
+  placedAt: string;
+  toAddress: ShippoAddress;
+  lineItems: ShippoLineItem[];
+  shippingCost: string;
+  shippingService?: string;
+}): Promise<string> {
   const key = getShippoKey();
 
-  const shipping = session.shipping_details;
-  const customer = session.customer_details;
+  const subtotal = lineItems
+    .reduce((sum, item) => sum + parseFloat(item.total_price), 0)
+    .toFixed(2);
+  const total = (parseFloat(subtotal) + parseFloat(shippingCost)).toFixed(2);
 
-  if (!shipping?.address) {
-    throw new Error('No shipping address on session');
-  }
-
-  const currency = (session.currency ?? 'usd').toUpperCase();
-
-  const lineItems = (session.line_items?.data ?? []).map((item) => {
-    const product = item.price?.product as Stripe.Product | undefined;
-    return {
-      title: item.description ?? product?.name ?? 'Product',
-      quantity: item.quantity ?? 1,
-      total_price: ((item.amount_total ?? 0) / 100).toFixed(2),
-      currency,
-      sku: product?.metadata?.sh_id ?? undefined,
-    };
-  });
-
-  const totalPrice = ((session.amount_total ?? 0) / 100).toFixed(2);
-
-  const body = {
-    order_number: session.id,
+  const body: Record<string, unknown> = {
+    order_number: stripeSessionId,
     order_status: 'PAID',
-    placed_at: new Date((session.created ?? Date.now() / 1000) * 1000).toISOString(),
-    to_address: {
-      name: shipping.name ?? customer?.name ?? '',
-      street1: shipping.address.line1 ?? '',
-      street2: shipping.address.line2 ?? undefined,
-      city: shipping.address.city ?? '',
-      state: shipping.address.state ?? '',
-      zip: shipping.address.postal_code ?? '',
-      country: shipping.address.country ?? 'US',
-      email: customer?.email ?? undefined,
-      phone: customer?.phone ?? undefined,
-    },
+    placed_at: placedAt,
+    to_address: toAddress,
     line_items: lineItems,
-    shipping_cost: '0.00',
-    shipping_cost_currency: currency,
-    subtotal_price: totalPrice,
-    total_price: totalPrice,
+    shipping_cost: shippingCost,
+    shipping_cost_currency: 'USD',
+    subtotal_price: subtotal,
+    total_price: total,
     total_tax: '0.00',
-    currency,
+    currency: 'USD',
   };
+
+  if (shippingService) {
+    body.shipping_method = shippingService;
+  }
 
   const res = await fetch('https://api.goshippo.com/orders/', {
     method: 'POST',

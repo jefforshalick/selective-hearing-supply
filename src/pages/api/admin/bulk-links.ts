@@ -146,6 +146,10 @@ export const POST: APIRoute = async ({ request }) => {
         const url = await createCheckoutSession(items, email, {
           amount: shippingCost,
           label: `${rate.provider} ${rate.servicelevel.name}`,
+        }, {
+          delivery_address: row['address'],
+          shipping_service: `${rate.provider} ${rate.servicelevel.name}`,
+          shipping_cost: shippingCost.toFixed(2),
         });
 
         out.shipping_carrier = rate.provider;

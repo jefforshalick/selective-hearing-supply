@@ -91,7 +91,11 @@ export const POST: APIRoute = async ({ request }) => {
       deliveryAddress = rawAddress;
 
       if (email) {
-        url = await createCheckoutSession(items, email, { amount: shippingCostNum, label: shippingService });
+        url = await createCheckoutSession(items, email, { amount: shippingCostNum, label: shippingService }, {
+          delivery_address: rawAddress,
+          shipping_service: shippingService,
+          shipping_cost: shippingCostNum.toFixed(2),
+        });
       } else {
         url = await createPaymentLink(items, shippingCostNum);
       }

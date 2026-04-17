@@ -82,7 +82,8 @@ export async function syncProductToStripe(
 export async function createCheckoutSession(
   items: { stripePriceId: string; quantity: number }[],
   customerEmail: string,
-  shipping?: { amount: number; label: string }
+  shipping?: { amount: number; label: string },
+  metadata?: Record<string, string>
 ): Promise<string> {
   const stripe = getStripe();
 
@@ -114,11 +115,29 @@ export async function createCheckoutSession(
         optional: false,
       },
     ],
+    ...(metadata ? { metadata } : {}),
     success_url: 'https://supply.selectivehear.ing/success',
     cancel_url: 'https://supply.selectivehear.ing',
   });
 
   return session.url!;
+}
+
+export async function listCompletedSessions(limit = 100): Promise<Stripe.Checkout.Session[]> {
+  const stripe = getStripe();
+  const result = await stripe.checkout.sessions.list({
+    status: 'complete',
+    limit,
+    expand: ['data.line_items', 'data.line_items.data.price.product'],
+  } as Parameters<typeof stripe.checkout.sessions.list>[0]);
+  return result.data;
+}
+
+export async function getSessionWithLineItems(sessionId: string): Promise<Stripe.Checkout.Session> {
+  const stripe = getStripe();
+  return stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['line_items', 'line_items.data.price.product'],
+  });
 }
 
 export async function archiveStripeProduct(stripeProductId: string): Promise<void> {
