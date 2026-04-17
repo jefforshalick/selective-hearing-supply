@@ -19,6 +19,8 @@ export interface ShippoLineItem {
   total_price: string; // e.g. "129.00"
   currency: string;    // "USD"
   sku?: string;
+  weight?: string;
+  weight_unit?: string;
 }
 
 export interface ShippoParcel {
@@ -290,7 +292,11 @@ export async function createShippoOrder({
     order_status: 'PAID',
     placed_at: placedAt,
     to_address: toAddress,
-    line_items: lineItems,
+    line_items: lineItems.map((item) => ({
+      ...item,
+      weight: item.weight ?? '0',
+      weight_unit: item.weight_unit ?? 'oz',
+    })),
     shipping_cost: shippingCost,
     shipping_cost_currency: 'USD',
     subtotal_price: subtotal,

@@ -65,12 +65,21 @@ export const POST: APIRoute = async ({ request }) => {
       const productItems = allItems.filter((i) => !isShippingItem(i));
       const shippingItem = allItems.find((i) => isShippingItem(i));
 
-      const lineItems: ShippoLineItem[] = productItems.map((item) => ({
-        title: item.description ?? 'Product',
-        quantity: item.quantity ?? 1,
-        total_price: ((item.amount_total ?? 0) / 100).toFixed(2),
-        currency: 'USD',
-      }));
+      const lineItems: ShippoLineItem[] = productItems.map((item) => {
+        // Weight is stored in Stripe product metadata as "32 oz", "2.5 lb", etc.
+        const productMeta = ((item.price?.product as any)?.metadata ?? {}) as Record<string, string>;
+        const weightStr = productMeta.weight ?? '';
+        const weightParts = weightStr.trim().split(/\s+/);
+        const weight = weightParts[0] && !isNaN(parseFloat(weightParts[0])) ? weightParts[0] : undefined;
+        const weight_unit = weightParts[1] as ShippoLineItem['weight_unit'] | undefined;
+        return {
+          title: item.description ?? 'Product',
+          quantity: item.quantity ?? 1,
+          total_price: ((item.amount_total ?? 0) / 100).toFixed(2),
+          currency: 'USD',
+          ...(weight ? { weight, weight_unit: weight_unit ?? 'oz' } : {}),
+        };
+      });
 
       const shippingCost = shippingItem
         ? ((shippingItem.amount_total ?? 0) / 100).toFixed(2)

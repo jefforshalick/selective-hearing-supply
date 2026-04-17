@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
 import { createShippoOrder, parseAddressString } from '../../../lib/shippo';
 import { getEmailLog } from '../../../lib/email-log';
+import { getProducts } from '../../../lib/products';
 import type { ShippoAddress, ShippoLineItem } from '../../../lib/shippo';
 
 function getStripe(): Stripe {
@@ -16,8 +17,14 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const stripe = getStripe();
 
-    // 1. Get email log (has address + email)
-    const log = await getEmailLog();
+    // 1. Load products (for weight lookup) and email log
+    const [log, products] = await Promise.all([getEmailLog(), getProducts()]);
+    // Map product name (lowercase) → { weight, weight_unit }
+    const weightByName = new Map(
+      products
+        .filter((p) => p.weight != null)
+        .map((p) => [p.name.toLowerCase(), { weight: String(p.weight), weight_unit: p.weight_unit ?? 'oz' }])
+    );
     // Build map: email -> sorted log entries (newest first)
     const logByEmail = new Map<string, typeof log>();
     for (const entry of log) {
@@ -84,12 +91,17 @@ export const POST: APIRoute = async ({ request }) => {
         const productItems = allItems.filter((i: Stripe.LineItem) => !isShippingItem(i));
         const shippingItem = allItems.find((i: Stripe.LineItem) => isShippingItem(i));
 
-        const lineItems: ShippoLineItem[] = productItems.map((item: Stripe.LineItem) => ({
-          title: item.description ?? 'Product',
-          quantity: item.quantity ?? 1,
-          total_price: ((item.amount_total ?? 0) / 100).toFixed(2),
-          currency: 'USD',
-        }));
+        const lineItems: ShippoLineItem[] = productItems.map((item: Stripe.LineItem) => {
+          const title = item.description ?? 'Product';
+          const w = weightByName.get(title.toLowerCase());
+          return {
+            title,
+            quantity: item.quantity ?? 1,
+            total_price: ((item.amount_total ?? 0) / 100).toFixed(2),
+            currency: 'USD',
+            ...(w ? { weight: w.weight, weight_unit: w.weight_unit } : {}),
+          };
+        });
 
         const shippingCost = shippingItem
           ? ((shippingItem.amount_total ?? 0) / 100).toFixed(2)
