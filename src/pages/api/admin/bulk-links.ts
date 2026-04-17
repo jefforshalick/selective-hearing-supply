@@ -150,6 +150,8 @@ export const POST: APIRoute = async ({ request }) => {
           delivery_address: row['address'],
           shipping_service: `${rate.provider} ${rate.servicelevel.name}`,
           shipping_cost: shippingCost.toFixed(2),
+          box_dims: `${row['box_l']} × ${row['box_w']} × ${row['box_h']} in`,
+          box_weight: `${row['weight']} ${row['weight_unit'] ?? 'oz'}`,
         });
 
         out.shipping_carrier = rate.provider;

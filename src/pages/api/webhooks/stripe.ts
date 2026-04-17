@@ -103,6 +103,10 @@ export const POST: APIRoute = async ({ request }) => {
         ? ((shippingItem.amount_total ?? 0) / 100).toFixed(2)
         : (metadata.shipping_cost ?? '0.00');
 
+      const notes = metadata.box_dims
+        ? `Box: ${metadata.box_dims} | Weight: ${metadata.box_weight ?? 'unknown'}`
+        : undefined;
+
       await createShippoOrder({
         stripeSessionId: session.id,
         placedAt: new Date(session.created * 1000).toISOString(),
@@ -111,6 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
         lineItems,
         shippingCost,
         shippingService: metadata.shipping_service,
+        notes,
       });
     } catch (err: any) {
       // Log but return 200 so Stripe doesn't keep retrying

@@ -265,6 +265,19 @@ function getShippoKey(): string {
   return key;
 }
 
+export async function listShippoOrderNumbers(): Promise<Set<string>> {
+  const key = getShippoKey();
+  const res = await fetch('https://api.goshippo.com/orders/?results=250', {
+    headers: { Authorization: `ShippoToken ${key}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Shippo list orders error ${res.status}: ${text}`);
+  }
+  const data = (await res.json()) as { results: Array<{ order_number: string }> };
+  return new Set((data.results ?? []).map((o) => o.order_number));
+}
+
 export async function createShippoOrder({
   stripeSessionId,
   placedAt,
@@ -273,6 +286,7 @@ export async function createShippoOrder({
   lineItems,
   shippingCost,
   shippingService,
+  notes,
 }: {
   stripeSessionId: string;
   placedAt: string;
@@ -281,6 +295,7 @@ export async function createShippoOrder({
   lineItems: ShippoLineItem[];
   shippingCost: string;
   shippingService?: string;
+  notes?: string;
 }): Promise<string> {
   const key = getShippoKey();
 
@@ -325,6 +340,7 @@ export async function createShippoOrder({
   };
 
   if (shippingService) body.shipping_method = shippingService;
+  if (notes) body.notes = notes;
   // Order-level weight is required by Shippo. Use sum of item weights when available,
   // otherwise fall back to 1 oz per item quantity as a placeholder.
   const weightOz = totalWeightOz !== null

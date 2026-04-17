@@ -95,6 +95,8 @@ export const POST: APIRoute = async ({ request }) => {
           delivery_address: rawAddress,
           shipping_service: shippingService,
           shipping_cost: shippingCostNum.toFixed(2),
+          box_dims: `${form.get('box_l')} × ${form.get('box_w')} × ${form.get('box_h')} in`,
+          box_weight: `${form.get('weight')} ${form.get('weight_unit') ?? 'lb'}`,
         });
       } else {
         url = await createPaymentLink(items, shippingCostNum);

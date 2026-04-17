@@ -2,7 +2,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
-import { createShippoOrder, parseAddressString } from '../../../lib/shippo';
+import { createShippoOrder, listShippoOrderNumbers, parseAddressString } from '../../../lib/shippo';
 import { getEmailLog } from '../../../lib/email-log';
 import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
@@ -18,8 +18,13 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const stripe = getStripe();
 
-    // 1. Load products, settings, and email log
-    const [log, products, settings] = await Promise.all([getEmailLog(), getProducts(), getSettings()]);
+    // 1. Load products, settings, email log, and existing Shippo order numbers
+    const [log, products, settings, existingShippoOrders] = await Promise.all([
+      getEmailLog(),
+      getProducts(),
+      getSettings(),
+      listShippoOrderNumbers(),
+    ]);
 
     // Build from address branded as Selective Hearing Supply
     const shipFrom = settings.shipFromAddresses[0];
@@ -39,6 +44,19 @@ export const POST: APIRoute = async ({ request }) => {
       products
         .filter((p) => p.weight != null)
         .map((p) => [p.name.toLowerCase(), { weight: String(p.weight), weight_unit: p.weight_unit ?? 'oz' }])
+    );
+    // Map product name (lowercase) → dimension notes string
+    const dimsByName = new Map(
+      products
+        .filter((p) => (p as any).dim_l != null)
+        .map((p) => {
+          const pp = p as any;
+          const unit = pp.dim_unit ?? 'in';
+          const dims = `${pp.dim_l} × ${pp.dim_w} × ${pp.dim_h} ${unit}`;
+          const wt = pp.weight != null ? `${pp.weight} ${pp.weight_unit ?? 'oz'}` : undefined;
+          const notes = wt ? `Box: ${dims} | Weight: ${wt}` : `Box: ${dims}`;
+          return [p.name.toLowerCase(), notes];
+        })
     );
     // Build map: email -> sorted log entries (newest first)
     const logByEmail = new Map<string, typeof log>();
@@ -61,8 +79,12 @@ export const POST: APIRoute = async ({ request }) => {
     const errors: { session: string; error: string }[] = [];
 
     for (const session of sessions.data) {
-      // Cap at 45 Shippo creates to stay within 50 subrequest limit
-      if (created >= 45) break;
+      // Cap at 43 Shippo creates to stay within 50 subrequest limit
+      // (5 fixed subrequests: email log, products, settings, Stripe list, Shippo list)
+      if (created >= 43) break;
+
+      // Skip if this session already exists in Shippo
+      if (existingShippoOrders.has(session.id)) { skipped++; continue; }
 
       // Skip if already has address metadata (webhook already handled it)
       if (session.metadata?.delivery_address) { skipped++; continue; }
@@ -125,6 +147,10 @@ export const POST: APIRoute = async ({ request }) => {
           ? ((shippingItem.amount_total ?? 0) / 100).toFixed(2)
           : '0.00';
 
+        // Build notes from first product's dimensions
+        const firstProductTitle = productItems[0]?.description ?? '';
+        const notes = dimsByName.get(firstProductTitle.toLowerCase());
+
         await createShippoOrder({
           stripeSessionId: session.id,
           placedAt: new Date(session.created * 1000).toISOString(),
@@ -133,6 +159,7 @@ export const POST: APIRoute = async ({ request }) => {
           lineItems,
           shippingCost,
           shippingService: best.shippingService !== 'Flat rate' ? best.shippingService : undefined,
+          notes,
         });
 
         created++;
