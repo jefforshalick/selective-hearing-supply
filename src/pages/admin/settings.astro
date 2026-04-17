@@ -160,5 +160,52 @@ const addresses = settings.shipFromAddresses;
       </form>
     </div>
 
+    <!-- Sync to Shippo -->
+    <div style="padding-top:8px; border-top:1px solid #1E1E1E; display:flex; flex-direction:column; gap:20px;">
+      <div>
+        <h2 style="font-size:13px; font-weight:600; color:#F5F5F0; text-transform:uppercase; letter-spacing:0.12em;">Sync to Shippo</h2>
+        <p style="font-size:11px; color:#555; margin-top:4px; line-height:1.6;">
+          Creates Shippo orders for completed Stripe sessions that have a delivery address on record.
+          New orders sync automatically via webhook. Use this to backfill historical orders.
+        </p>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button id="btn-backfill"
+                style="background:#FF7136; color:#0D0D0D; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.15em; padding:13px 28px; border:none; cursor:pointer; border-radius:0 10px 0 0; transition:opacity 0.15s;"
+                onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+          Backfill Orders
+        </button>
+        <span id="backfill-status" style="font-size:12px; color:#555;"></span>
+      </div>
+    </div>
+
   </div>
 </AdminLayout>
+
+<script>
+  document.getElementById('btn-backfill')?.addEventListener('click', async function() {
+    var btn = document.getElementById('btn-backfill');
+    var status = document.getElementById('backfill-status');
+    btn.disabled = true;
+    status.textContent = 'Running\u2026';
+    status.style.color = '#888';
+    try {
+      var res = await fetch('/api/admin/backfill-shippo', { method: 'POST' });
+      var json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Unknown error');
+      var msg = 'Created ' + json.created + ' order' + (json.created !== 1 ? 's' : '');
+      if (json.skipped > 0) msg += ', skipped ' + json.skipped;
+      if (json.errors && json.errors.length > 0) {
+        msg += '\n' + json.errors.map(function(e) { return e.session + ': ' + e.error; }).join('\n');
+      }
+      status.textContent = msg;
+      status.style.whiteSpace = 'pre';
+      status.style.color = json.errors && json.errors.length > 0 ? '#FF7136' : '#4CAF50';
+    } catch (err) {
+      status.textContent = (err && err.message) ? err.message : 'Error';
+      status.style.color = '#FF7136';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
