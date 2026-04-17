@@ -115,7 +115,7 @@ export async function createCheckoutSession(
         optional: false,
       },
     ],
-    ...(metadata ? { metadata } : {}),
+    ...(metadata ? { metadata, payment_intent_data: { metadata } } : {}),
     success_url: 'https://supply.selectivehear.ing/success',
     cancel_url: 'https://supply.selectivehear.ing',
   });

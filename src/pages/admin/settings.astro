@@ -195,7 +195,6 @@ const addresses = settings.shipFromAddresses;
       if (!res.ok) throw new Error(json.error || 'Unknown error');
       var parts = [];
       if (json.created > 0) parts.push('Created ' + json.created);
-      if (json.updated > 0) parts.push('updated ' + json.updated);
       if (json.skipped > 0) parts.push('skipped ' + json.skipped);
       var msg = parts.length ? parts.join(', ') : 'Nothing to sync';
       if (json.errors && json.errors.length > 0) {

@@ -279,32 +279,11 @@ export async function listShippoOrders(): Promise<Map<string, string>> {
   return new Map((data.results ?? []).map((o) => [o.order_number, o.object_id]));
 }
 
-export async function updateShippoOrder(
-  objectId: string,
-  updates: {
-    fromAddress?: ShippoAddress;
-    toAddress?: ShippoAddress;
-    notes?: string;
-  }
-): Promise<void> {
-  const key = getShippoKey();
-  const body: Record<string, unknown> = { order_status: 'PAID' };
-  if (updates.fromAddress) body.from_address = updates.fromAddress;
-  if (updates.toAddress) body.to_address = updates.toAddress;
-  if (updates.notes) body.notes = updates.notes;
-
-  const res = await fetch(`https://api.goshippo.com/orders/${objectId}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `ShippoToken ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Shippo update order error ${res.status}: ${text}`);
-  }
+export interface ShippoParcelDims {
+  length: number;
+  width: number;
+  height: number;
+  distance_unit: 'in' | 'cm';
 }
 
 export async function createShippoOrder({
@@ -316,6 +295,7 @@ export async function createShippoOrder({
   shippingCost,
   shippingService,
   notes,
+  parcelDims,
 }: {
   stripeSessionId: string;
   placedAt: string;
@@ -325,6 +305,7 @@ export async function createShippoOrder({
   shippingCost: string;
   shippingService?: string;
   notes?: string;
+  parcelDims?: ShippoParcelDims;
 }): Promise<string> {
   const key = getShippoKey();
 
@@ -359,7 +340,8 @@ export async function createShippoOrder({
     ...(fromAddress ? { from_address: fromAddress } : {}),
     to_address: toAddress,
     line_items: shippoLineItems,
-    metadata: 'selective_hearing',
+    metadata: 'selective-hearing',
+    tags: ['selechearing'],
     shipping_cost: shippingCost,
     shipping_cost_currency: 'USD',
     subtotal_price: subtotal,
@@ -377,6 +359,17 @@ export async function createShippoOrder({
     : lineItems.reduce((sum, i) => sum + (i.quantity), 0); // 1 oz per item
   body.weight = weightOz.toFixed(2);
   body.weight_unit = 'oz';
+  // Attach parcel dimensions so Shippo can pre-fill the package for label purchasing
+  if (parcelDims) {
+    body.parcels = [{
+      length: parcelDims.length,
+      width: parcelDims.width,
+      height: parcelDims.height,
+      distance_unit: parcelDims.distance_unit,
+      weight: parseFloat(weightOz.toFixed(2)),
+      mass_unit: 'oz',
+    }];
+  }
 
   const res = await fetch('https://api.goshippo.com/orders/', {
     method: 'POST',

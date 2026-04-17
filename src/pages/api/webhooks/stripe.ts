@@ -4,7 +4,7 @@ import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
 import { createShippoOrder, parseAddressString } from '../../../lib/shippo';
 import { getSettings } from '../../../lib/settings';
-import type { ShippoAddress, ShippoLineItem } from '../../../lib/shippo';
+import type { ShippoAddress, ShippoLineItem, ShippoParcelDims } from '../../../lib/shippo';
 
 function getStripe(): Stripe {
   const key = (env as any)?.STRIPE_SECRET_KEY;
@@ -107,6 +107,21 @@ export const POST: APIRoute = async ({ request }) => {
         ? `Box: ${metadata.box_dims} | Weight: ${metadata.box_weight ?? 'unknown'}`
         : undefined;
 
+      // Parse structured parcel dims from metadata for label purchasing
+      let parcelDims: ShippoParcelDims | undefined;
+      if (metadata.box_dims) {
+        // Format: "14 × 10 × 3 in" (× is U+00D7)
+        const m = metadata.box_dims.match(/([\d.]+)\s*[×xX]\s*([\d.]+)\s*[×xX]\s*([\d.]+)\s*(\w+)/);
+        if (m) {
+          parcelDims = {
+            length: parseFloat(m[1]),
+            width: parseFloat(m[2]),
+            height: parseFloat(m[3]),
+            distance_unit: m[4] as 'in' | 'cm',
+          };
+        }
+      }
+
       await createShippoOrder({
         stripeSessionId: session.id,
         placedAt: new Date(session.created * 1000).toISOString(),
@@ -116,6 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
         shippingCost,
         shippingService: metadata.shipping_service,
         notes,
+        parcelDims,
       });
     } catch (err: any) {
       // Log but return 200 so Stripe doesn't keep retrying

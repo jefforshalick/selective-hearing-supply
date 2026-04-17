@@ -2,11 +2,11 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
-import { createShippoOrder, updateShippoOrder, listShippoOrders, parseAddressString } from '../../../lib/shippo';
+import { createShippoOrder, listShippoOrders, parseAddressString } from '../../../lib/shippo';
 import { getEmailLog } from '../../../lib/email-log';
 import { getProducts } from '../../../lib/products';
 import { getSettings } from '../../../lib/settings';
-import type { ShippoAddress, ShippoLineItem } from '../../../lib/shippo';
+import type { ShippoAddress, ShippoLineItem, ShippoParcelDims } from '../../../lib/shippo';
 
 function getStripe(): Stripe {
   const key = (env as any)?.STRIPE_SECRET_KEY;
@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request }) => {
         .filter((p) => p.weight != null)
         .map((p) => [p.name.toLowerCase(), { weight: String(p.weight), weight_unit: p.weight_unit ?? 'oz' }])
     );
-    // Map product name (lowercase) → dimension notes string
+    // Map product name (lowercase) → dimension notes string + parcel dims
     const dimsByName = new Map(
       products
         .filter((p) => (p as any).dim_l != null)
@@ -56,6 +56,19 @@ export const POST: APIRoute = async ({ request }) => {
           const wt = pp.weight != null ? `${pp.weight} ${pp.weight_unit ?? 'oz'}` : undefined;
           const notes = wt ? `Box: ${dims} | Weight: ${wt}` : `Box: ${dims}`;
           return [p.name.toLowerCase(), notes];
+        })
+    );
+    const parcelDimsByName = new Map(
+      products
+        .filter((p) => (p as any).dim_l != null)
+        .map((p) => {
+          const pp = p as any;
+          return [p.name.toLowerCase(), {
+            length: parseFloat(pp.dim_l),
+            width: parseFloat(pp.dim_w),
+            height: parseFloat(pp.dim_h),
+            distance_unit: (pp.dim_unit ?? 'in') as 'in' | 'cm',
+          }];
         })
     );
     // Build map: email -> sorted log entries (newest first)
@@ -75,7 +88,6 @@ export const POST: APIRoute = async ({ request }) => {
     } as any);
 
     let created = 0;
-    let updated = 0;
     let skipped = 0;
     const errors: { session: string; error: string }[] = [];
 
@@ -145,33 +157,31 @@ export const POST: APIRoute = async ({ request }) => {
           ? ((shippingItem.amount_total ?? 0) / 100).toFixed(2)
           : '0.00';
 
-        // Build notes from first product's dimensions
+        // Build notes + parcel dims from first product's dimensions
         const firstProductTitle = productItems[0]?.description ?? '';
         const notes = dimsByName.get(firstProductTitle.toLowerCase());
+        const parcelDims = parcelDimsByName.get(firstProductTitle.toLowerCase());
 
-        const existingObjectId = existingShippoOrders.get(session.id);
-        if (existingObjectId) {
-          await updateShippoOrder(existingObjectId, { fromAddress, toAddress, notes });
-          updated++;
-        } else {
-          await createShippoOrder({
-            stripeSessionId: session.id,
-            placedAt: new Date(session.created * 1000).toISOString(),
-            fromAddress,
-            toAddress,
-            lineItems,
-            shippingCost,
-            shippingService: best.shippingService !== 'Flat rate' ? best.shippingService : undefined,
-            notes,
-          });
-          created++;
-        }
+        if (existingShippoOrders.has(session.id)) { skipped++; continue; }
+
+        await createShippoOrder({
+          stripeSessionId: session.id,
+          placedAt: new Date(session.created * 1000).toISOString(),
+          fromAddress,
+          toAddress,
+          lineItems,
+          shippingCost,
+          shippingService: best.shippingService !== 'Flat rate' ? best.shippingService : undefined,
+          notes,
+          parcelDims,
+        });
+        created++;
       } catch (err: any) {
         errors.push({ session: session.id, error: err.message ?? 'Unknown error' });
       }
     }
 
-    return new Response(JSON.stringify({ created, updated, skipped, errors }), {
+    return new Response(JSON.stringify({ created, skipped, errors }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
