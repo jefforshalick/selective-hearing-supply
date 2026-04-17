@@ -268,6 +268,7 @@ function getShippoKey(): string {
 export async function createShippoOrder({
   stripeSessionId,
   placedAt,
+  fromAddress,
   toAddress,
   lineItems,
   shippingCost,
@@ -275,6 +276,7 @@ export async function createShippoOrder({
 }: {
   stripeSessionId: string;
   placedAt: string;
+  fromAddress?: ShippoAddress;
   toAddress: ShippoAddress;
   lineItems: ShippoLineItem[];
   shippingCost: string;
@@ -310,8 +312,10 @@ export async function createShippoOrder({
     order_number: stripeSessionId,
     order_status: 'PAID',
     placed_at: placedAt,
+    ...(fromAddress ? { from_address: fromAddress } : {}),
     to_address: toAddress,
     line_items: shippoLineItems,
+    metadata: 'selective_hearing',
     shipping_cost: shippingCost,
     shipping_cost_currency: 'USD',
     subtotal_price: subtotal,

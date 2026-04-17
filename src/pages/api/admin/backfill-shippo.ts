@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { createShippoOrder, parseAddressString } from '../../../lib/shippo';
 import { getEmailLog } from '../../../lib/email-log';
 import { getProducts } from '../../../lib/products';
+import { getSettings } from '../../../lib/settings';
 import type { ShippoAddress, ShippoLineItem } from '../../../lib/shippo';
 
 function getStripe(): Stripe {
@@ -17,8 +18,22 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     const stripe = getStripe();
 
-    // 1. Load products (for weight lookup) and email log
-    const [log, products] = await Promise.all([getEmailLog(), getProducts()]);
+    // 1. Load products, settings, and email log
+    const [log, products, settings] = await Promise.all([getEmailLog(), getProducts(), getSettings()]);
+
+    // Build from address branded as Selective Hearing Supply
+    const shipFrom = settings.shipFromAddresses[0];
+    const fromAddress: ShippoAddress | undefined = shipFrom ? {
+      name: 'Selective Hearing Supply',
+      company: 'Selective Hearing Supply',
+      street1: shipFrom.street1,
+      street2: shipFrom.street2,
+      city: shipFrom.city,
+      state: shipFrom.state,
+      zip: shipFrom.zip,
+      country: shipFrom.country,
+      phone: shipFrom.phone,
+    } : undefined;
     // Map product name (lowercase) → { weight, weight_unit }
     const weightByName = new Map(
       products
@@ -72,8 +87,11 @@ export const POST: APIRoute = async ({ request }) => {
 
       try {
         const parsed = parseAddressString(best.address);
+        // Prefer the name the customer entered in Stripe checkout over the email log name
+        const shippingNameField = ((session as any).custom_fields ?? []).find((f: any) => f.key === 'shipping_name');
+        const shippingName = shippingNameField?.text?.value || best.name || undefined;
         const toAddress: ShippoAddress = {
-          name: best.name || undefined,
+          name: shippingName,
           street1: parsed.street1,
           street2: parsed.street2,
           city: parsed.city,
@@ -110,6 +128,7 @@ export const POST: APIRoute = async ({ request }) => {
         await createShippoOrder({
           stripeSessionId: session.id,
           placedAt: new Date(session.created * 1000).toISOString(),
+          fromAddress,
           toAddress,
           lineItems,
           shippingCost,

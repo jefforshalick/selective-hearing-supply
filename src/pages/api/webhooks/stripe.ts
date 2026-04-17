@@ -3,6 +3,7 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import Stripe from 'stripe';
 import { createShippoOrder, parseAddressString } from '../../../lib/shippo';
+import { getSettings } from '../../../lib/settings';
 import type { ShippoAddress, ShippoLineItem } from '../../../lib/shippo';
 
 function getStripe(): Stripe {
@@ -30,13 +31,30 @@ export const POST: APIRoute = async ({ request }) => {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
     try {
-      const full = await stripe.checkout.sessions.retrieve(session.id, {
-        expand: ['line_items', 'line_items.data.price.product'],
-      });
+      const [full, settings] = await Promise.all([
+        stripe.checkout.sessions.retrieve(session.id, {
+          expand: ['line_items', 'line_items.data.price.product'],
+        }),
+        getSettings(),
+      ]);
 
       const metadata = full.metadata ?? {};
       const rawAddress = metadata.delivery_address;
       if (!rawAddress) return new Response('ok', { status: 200 });
+
+      // Build from address using first ship-from, branded as Selective Hearing Supply
+      const shipFrom = settings.shipFromAddresses[0];
+      const fromAddress: ShippoAddress | undefined = shipFrom ? {
+        name: 'Selective Hearing Supply',
+        company: 'Selective Hearing Supply',
+        street1: shipFrom.street1,
+        street2: shipFrom.street2,
+        city: shipFrom.city,
+        state: shipFrom.state,
+        zip: shipFrom.zip,
+        country: shipFrom.country,
+        phone: shipFrom.phone,
+      } : undefined;
 
       const parsed = parseAddressString(rawAddress);
 
@@ -88,6 +106,7 @@ export const POST: APIRoute = async ({ request }) => {
       await createShippoOrder({
         stripeSessionId: session.id,
         placedAt: new Date(session.created * 1000).toISOString(),
+        fromAddress,
         toAddress,
         lineItems,
         shippingCost,
