@@ -338,7 +338,6 @@ export async function createShippoOrder({
     to_address: toAddress,
     line_items: shippoLineItems,
     metadata: stripeSessionId, // full Stripe session ID for traceability
-    tags: ['selechearing'],
     shipping_cost: shippingCost,
     shipping_cost_currency: 'USD',
     subtotal_price: subtotal,

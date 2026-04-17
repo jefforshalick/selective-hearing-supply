@@ -73,12 +73,6 @@ const shipFromAddresses = settings.shipFromAddresses;
           {/* Dynamic fields */}
           <div id="fields-dynamic" style="display:none; flex-direction:column; gap:12px;">
             <div style="display:flex; align-items:center; gap:12px;">
-              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Address</label>
-              <input type="text" name="address" placeholder="123 Main St, Austin, TX 78701, US"
-                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1;"
-                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
-            </div>
-            <div style="display:flex; align-items:center; gap:12px;">
               <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Ship From</label>
               <select name="from"
                       style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1; cursor:pointer;"
@@ -120,6 +114,12 @@ const shipFromAddresses = settings.shipFromAddresses;
 
           {/* Customer info */}
           <div style="display:flex; flex-direction:column; gap:12px; padding-top:8px; border-top:1px solid #1A1A1A;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Address <span id="addr-required" style="color:#FF7136; display:none;">*</span></label>
+              <input type="text" name="address" placeholder="123 Main St, Austin, TX 78701, US"
+                     style="background:#141414; border:1px solid #2A2A2A; color:#F5F5F0; font-size:13px; padding:10px 12px; outline:none; flex:1;"
+                     onfocus="this.style.borderColor='#FF7136'" onblur="this.style.borderColor='#2A2A2A'" />
+            </div>
             <div style="display:flex; align-items:center; gap:12px;">
               <label style="font-size:10px; text-transform:uppercase; letter-spacing:0.16em; color:#555; white-space:nowrap; width:100px;">Email</label>
               <input type="email" name="email" placeholder="customer@example.com"
@@ -246,6 +246,7 @@ const shipFromAddresses = settings.shipFromAddresses;
   var fieldsDynamic = document.getElementById('fields-dynamic');
 
   function setMode(mode) {
+    var addrRequired = document.getElementById('addr-required');
     if (mode === 'flat') {
       tabFlat.style.background = '#FF7136';
       tabFlat.style.color = '#0D0D0D';
@@ -253,6 +254,7 @@ const shipFromAddresses = settings.shipFromAddresses;
       tabDynamic.style.color = '#555';
       fieldsFlat.style.display = 'flex';
       fieldsDynamic.style.display = 'none';
+      if (addrRequired) addrRequired.style.display = 'none';
     } else {
       tabDynamic.style.background = '#FF7136';
       tabDynamic.style.color = '#0D0D0D';
@@ -260,6 +262,7 @@ const shipFromAddresses = settings.shipFromAddresses;
       tabFlat.style.color = '#555';
       fieldsFlat.style.display = 'none';
       fieldsDynamic.style.display = 'flex';
+      if (addrRequired) addrRequired.style.display = 'inline';
     }
   }
 
