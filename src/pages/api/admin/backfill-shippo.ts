@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request }) => {
     const sessions = await stripe.checkout.sessions.list({
       status: 'complete',
       limit: 100,
-      expand: ['data.line_items', 'data.line_items.data.price.product'],
+      expand: ['data.line_items'],
     } as any);
 
     let created = 0;
