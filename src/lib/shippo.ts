@@ -287,16 +287,31 @@ export async function createShippoOrder({
     .toFixed(2);
   const total = (parseFloat(subtotal) + parseFloat(shippingCost)).toFixed(2);
 
+  // Build line items — only include weight fields when we have a real value
+  const shippoLineItems = lineItems.map((item) => {
+    const { weight, weight_unit, ...rest } = item;
+    const w = weight && parseFloat(weight) > 0 ? weight : null;
+    return w ? { ...rest, weight: w, weight_unit: weight_unit ?? 'oz' } : rest;
+  });
+
+  // Compute total weight for the order if all items have weights (used for label purchasing)
+  const allHaveWeight = lineItems.every((i) => i.weight && parseFloat(i.weight) > 0);
+  const totalWeightOz = allHaveWeight
+    ? lineItems.reduce((sum, i) => {
+        const w = parseFloat(i.weight!);
+        const unit = i.weight_unit ?? 'oz';
+        // Normalize to oz
+        const oz = unit === 'lb' ? w * 16 : unit === 'kg' ? w * 35.274 : unit === 'g' ? w * 0.035274 : w;
+        return sum + oz * (i.quantity);
+      }, 0)
+    : null;
+
   const body: Record<string, unknown> = {
     order_number: stripeSessionId,
     order_status: 'PAID',
     placed_at: placedAt,
     to_address: toAddress,
-    line_items: lineItems.map((item) => ({
-      ...item,
-      weight: item.weight ?? '0',
-      weight_unit: item.weight_unit ?? 'oz',
-    })),
+    line_items: shippoLineItems,
     shipping_cost: shippingCost,
     shipping_cost_currency: 'USD',
     subtotal_price: subtotal,
@@ -305,8 +320,10 @@ export async function createShippoOrder({
     currency: 'USD',
   };
 
-  if (shippingService) {
-    body.shipping_method = shippingService;
+  if (shippingService) body.shipping_method = shippingService;
+  if (totalWeightOz !== null) {
+    body.total_weight = totalWeightOz.toFixed(2);
+    body.weight_unit = 'oz';
   }
 
   const res = await fetch('https://api.goshippo.com/orders/', {
